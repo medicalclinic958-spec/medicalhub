@@ -6,6 +6,8 @@ import { Invoice, Medicine } from "@/models/operations.model";
 import { apiSuccess, apiError, getPaginationParams, buildPagination, getIpFromHeaders } from "@/lib/utils";
 import { createInvoiceSchema } from "@/lib/validations";
 import { auditLog, hasPermission } from "@/lib/auth/audit";
+import { NotificationService } from "@/services/notification.service";
+import { formatCurrency, formatDate } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
     const session = await auth();
@@ -94,6 +96,29 @@ export async function POST(req: NextRequest) {
         resourceType: "Invoice",
         ipAddress: getIpFromHeaders(req.headers),
     });
+
+    if (invoice.invoiceType === "pharmacy_purchase") {
+        // Notify admin about new purchase
+        const { User } = await import("@/models/user.model");
+        const adminUsers = await User.find({
+            $or: [
+                { isSuperAdmin: true },
+                { permissions: { $in: ["billing:view"] } }
+            ]
+        }).select("_id").lean();
+
+        const userIds = adminUsers.map(u => u._id.toString());
+        if (userIds.length > 0) {
+            await NotificationService.createBulk(userIds, {
+                type: "pending_payment",
+                title: "New Purchase Invoice",
+                message: `Purchase invoice ${invoice.invoiceNumber} created for ${formatCurrency(invoice.total)}`,
+                priority: "medium",
+                actionUrl: `/billing/${invoice._id}`,
+                metadata: { invoiceId: invoice._id.toString() },
+            });
+        }
+    }
 
     return apiSuccess(populatedInvoice, "Invoice created", 201);
 }

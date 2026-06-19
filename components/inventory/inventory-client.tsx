@@ -3,23 +3,42 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import axios from "axios";
-import { Plus, Search, Package, AlertTriangle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Plus, Search, AlertTriangle, Eye, Box } from "lucide-react";
 import {
   Card, CardBody, Table, Th, Td, Button, Modal,
   FormField, Input, Select, EmptyState, Pagination, Badge, Alert, StatCard,
 } from "@/components/ui";
 import { useSession } from "next-auth/react";
+import { z } from "zod";
+
+const createInventorySchema = z.object({
+  name: z.string().min(1),
+  category: z.enum(["equipment", "supply", "consumable"]),
+  sku: z.string().optional(),
+  currentQuantity: z.number().min(0),
+  minQuantity: z.number().min(0),
+  unit: z.string().min(1),
+  unitCost: z.number().min(0),
+  location: z.string().optional(),
+  supplier: z.string().optional(),
+});
+
+type CreateInventoryInput = z.infer<typeof createInventorySchema>;
 
 interface InventoryItem {
   _id: string; name: string; category: string; sku?: string;
   currentQuantity: number; minQuantity: number; unit: string;
-  unitCost: number; location?: string; isActive: boolean;
+  unitCost: number; location?: string; supplier?: { _id: string; name: string };
+  isActive: boolean;
 }
 
 export function InventoryClient() {
   const { data: session } = useSession();
   const qc = useQueryClient();
+  const router = useRouter();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
@@ -36,17 +55,24 @@ export function InventoryClient() {
     queryFn: () => axios.get("/api/inventory", { params: { page, limit: 25, search, category, lowStock: lowStockOnly } }).then(r => r.data),
   });
 
+  const { data: suppliersData } = useQuery({
+    queryKey: ["suppliers-active"],
+    queryFn: () => axios.get("/api/supplier", { params: { limit: 200, isActive: "true" } }).then(r => r.data),
+    enabled: createOpen,
+  });
+
   const items: InventoryItem[] = data?.data || [];
   const pagination = data?.pagination;
+  const suppliers = suppliersData?.data || [];
   const lowStockItems = items.filter(i => i.currentQuantity <= i.minQuantity);
 
-  const { register, handleSubmit, reset } = useForm<{
-    name: string; category: "equipment" | "supply" | "consumable"; sku?: string;
-    currentQuantity: number; minQuantity: number; unit: string; unitCost: number; location?: string;
-  }>();
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateInventoryInput>({
+    resolver: zodResolver(createInventorySchema),
+    defaultValues: { category: "supply", currentQuantity: 0, minQuantity: 5, unitCost: 0 },
+  });
 
   const createMutation = useMutation({
-    mutationFn: (d: Record<string, unknown>) => axios.post("/api/inventory", d),
+    mutationFn: (d: CreateInventoryInput) => axios.post("/api/inventory", d),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["inventory"] }); setCreateOpen(false); reset(); setCreateError(""); },
     onError: (e: unknown) => setCreateError((e as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed"),
   });
@@ -66,9 +92,9 @@ export function InventoryClient() {
       )}
 
       <div className="grid grid-cols-3 gap-4">
-        <StatCard title="Total Items" value={pagination?.total ?? 0} icon={Package} color="blue" loading={isLoading} />
+        <StatCard title="Total Items" value={pagination?.total ?? 0} icon={Box} color="blue" loading={isLoading} />
         <StatCard title="Low Stock" value={lowStockItems.length} icon={AlertTriangle} color="amber" loading={isLoading} />
-        <StatCard title="Total Value" value={`PKR ${items.reduce((s, i) => s + (i.currentQuantity * i.unitCost), 0).toLocaleString()}`} icon={Package} color="emerald" loading={isLoading} />
+        <StatCard title="Total Value" value={`PKR ${items.reduce((s, i) => s + (i.currentQuantity * i.unitCost), 0).toLocaleString()}`} icon={Box} color="emerald" loading={isLoading} />
       </div>
 
       <Card>
@@ -95,13 +121,13 @@ export function InventoryClient() {
       <Card>
         <Table>
           <thead>
-            <tr><Th>Name</Th><Th>Category</Th><Th>SKU</Th><Th>Qty</Th><Th>Min Qty</Th><Th>Unit</Th><Th>Unit Cost</Th><Th>Location</Th></tr>
+            <tr><Th>Name</Th><Th>Category</Th><Th>SKU</Th><Th>Qty</Th><Th>Min Qty</Th><Th>Unit</Th><Th>Unit Cost</Th><Th>Location</Th><Th>Actions</Th></tr>
           </thead>
           <tbody>
             {isLoading ? (
-              [...Array(8)].map((_, i) => <tr key={i}>{[...Array(8)].map((_, j) => <Td key={j}><div className="h-4 bg-slate-100 rounded animate-pulse" /></Td>)}</tr>)
+              [...Array(8)].map((_, i) => <tr key={i}>{[...Array(9)].map((_, j) => <Td key={j}><div className="h-4 bg-slate-100 rounded animate-pulse" /></Td>)}</tr>)
             ) : items.length === 0 ? (
-              <tr><td colSpan={8}><EmptyState title="No inventory items" action={canCreate ? <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="w-3.5 h-3.5" /> Add Item</Button> : undefined} /></td></tr>
+              <tr><td colSpan={9}><EmptyState title="No inventory items" action={canCreate ? <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="w-3.5 h-3.5" /> Add Item</Button> : undefined} /></td></tr>
             ) : items.map(item => {
               const isLow = item.currentQuantity <= item.minQuantity;
               return (
@@ -114,6 +140,11 @@ export function InventoryClient() {
                   <Td className="text-slate-500">{item.unit}</Td>
                   <Td>PKR {item.unitCost?.toLocaleString()}</Td>
                   <Td className="text-slate-400">{item.location || "—"}</Td>
+                  <Td>
+                    <button onClick={() => router.push(`/inventory/${item._id}`)} className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-all">
+                      <Eye className="w-3.5 h-3.5" />
+                    </button>
+                  </Td>
                 </tr>
               );
             })}
@@ -126,14 +157,15 @@ export function InventoryClient() {
         )}
       </Card>
 
-      <Modal open={createOpen} onClose={() => { setCreateOpen(false); reset(); setCreateError(""); }} title="Add Inventory Item">
+      <Modal open={createOpen} onClose={() => { setCreateOpen(false); reset(); setCreateError(""); }} title="Add Inventory Item" size="lg">
         {createError && <Alert type="error">{createError}</Alert>}
-        <form onSubmit={handleSubmit(d => createMutation.mutate(d as unknown as Record<string, unknown>))} className="space-y-4 mt-2">
+        <form onSubmit={handleSubmit(d => createMutation.mutate(d))} className="space-y-4 mt-2">
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="Item Name" required><Input {...register("name", { required: true })} /></FormField>
-            <FormField label="Category" required>
-              <Select {...register("category", { required: true })}>
-                <option value="">Select</option>
+            <FormField label="Item Name" required error={errors.name?.message}>
+              <Input {...register("name")} error={!!errors.name} />
+            </FormField>
+            <FormField label="Category" required error={errors.category?.message}>
+              <Select {...register("category")} error={!!errors.category}>
                 <option value="equipment">Equipment</option>
                 <option value="supply">Supply</option>
                 <option value="consumable">Consumable</option>
@@ -141,15 +173,37 @@ export function InventoryClient() {
             </FormField>
           </div>
           <div className="grid grid-cols-3 gap-4">
-            <FormField label="Current Qty" required><Input type="number" {...register("currentQuantity", { valueAsNumber: true, required: true })} /></FormField>
-            <FormField label="Min Qty" required><Input type="number" {...register("minQuantity", { valueAsNumber: true, required: true })} /></FormField>
-            <FormField label="Unit" required><Input {...register("unit", { required: true })} placeholder="pcs, boxes..." /></FormField>
+            <FormField label="Current Qty" required error={errors.currentQuantity?.message}>
+              <Input type="number" {...register("currentQuantity", { valueAsNumber: true })} error={!!errors.currentQuantity} />
+            </FormField>
+            <FormField label="Min Qty" required error={errors.minQuantity?.message}>
+              <Input type="number" {...register("minQuantity", { valueAsNumber: true })} error={!!errors.minQuantity} />
+            </FormField>
+            <FormField label="Unit" required error={errors.unit?.message}>
+              <Input {...register("unit")} error={!!errors.unit} placeholder="pcs, boxes..." />
+            </FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="Unit Cost"><Input type="number" {...register("unitCost", { valueAsNumber: true })} /></FormField>
-            <FormField label="Location"><Input {...register("location")} placeholder="Storage room, shelf..." /></FormField>
+            <FormField label="Unit Cost (PKR)" error={errors.unitCost?.message}>
+              <Input type="number" {...register("unitCost", { valueAsNumber: true })} error={!!errors.unitCost} />
+            </FormField>
+            <FormField label="Location">
+              <Input {...register("location")} placeholder="Storage room, shelf..." />
+            </FormField>
           </div>
-          <FormField label="SKU"><Input {...register("sku")} placeholder="Optional barcode/SKU" /></FormField>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="SKU">
+              <Input {...register("sku")} placeholder="Optional barcode/SKU" />
+            </FormField>
+            <FormField label="Supplier">
+              <Select {...register("supplier")}>
+                <option value="">Select supplier (optional)</option>
+                {suppliers.map((s: { _id: string; name: string; type: string }) => (
+                  <option key={s._id} value={s._id}>{s.name} ({s.type})</option>
+                ))}
+              </Select>
+            </FormField>
+          </div>
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
             <Button type="button" variant="secondary" onClick={() => { setCreateOpen(false); reset(); }}>Cancel</Button>
             <Button type="submit" loading={createMutation.isPending}>Add Item</Button>

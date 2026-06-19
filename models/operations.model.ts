@@ -329,6 +329,7 @@ export interface IExpense extends Document {
   receiptUrl?: string;
   date: Date;
   description?: string;
+  status: "pending" | "approved" | "rejected";
   approvedBy?: mongoose.Types.ObjectId;
   createdBy: mongoose.Types.ObjectId;
 }
@@ -352,6 +353,12 @@ const ExpenseSchema = new Schema<IExpense>(
     receiptUrl: String,
     date: { type: Date, required: true, default: Date.now, index: true },
     description: String,
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+      index: true,
+    },
     approvedBy: { type: Schema.Types.ObjectId, ref: "User" },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   },

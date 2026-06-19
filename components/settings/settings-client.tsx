@@ -13,8 +13,8 @@ import { useSession } from "next-auth/react";
 const TABS = [
   { id: "clinic", label: "Clinic Info", icon: Building2 },
   { id: "departments", label: "Departments", icon: Settings },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "security", label: "Security", icon: Shield },
+  // { id: "notifications", label: "Notifications", icon: Bell },
+  // { id: "security", label: "Security", icon: Shield },
 ];
 
 export function SettingsClient() {
@@ -100,9 +100,8 @@ export function SettingsClient() {
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-all ${
-                tab === t.id ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700"
-              }`}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-all ${tab === t.id ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700"
+                }`}
             >
               <Icon className="w-4 h-4" />
               {t.label}
@@ -145,12 +144,12 @@ export function SettingsClient() {
                 <div className="grid grid-cols-3 gap-4">
                   <FormField label="Currency">
                     <Select {...register("currency")} disabled={!canEdit}>
-                      {["PKR","USD","EUR","GBP","AED","SAR","INR"].map(c => <option key={c} value={c}>{c}</option>)}
+                      {["PKR", "USD", "EUR", "GBP", "AED", "SAR", "INR"].map(c => <option key={c} value={c}>{c}</option>)}
                     </Select>
                   </FormField>
                   <FormField label="Timezone">
                     <Select {...register("timezone")} disabled={!canEdit}>
-                      {["Asia/Karachi","Asia/Kolkata","Asia/Dubai","Europe/London","America/New_York","UTC"].map(z => <option key={z} value={z}>{z}</option>)}
+                      {["Asia/Karachi", "Asia/Kolkata", "Asia/Dubai", "Europe/London", "America/New_York", "UTC"].map(z => <option key={z} value={z}>{z}</option>)}
                     </Select>
                   </FormField>
                   <FormField label="Invoice Prefix">
@@ -159,7 +158,7 @@ export function SettingsClient() {
                 </div>
                 <FormField label="Default Appointment Duration (minutes)">
                   <Select {...register("appointmentDuration", { valueAsNumber: true })} disabled={!canEdit}>
-                    {[10,15,20,30,45,60].map(d => <option key={d} value={d}>{d} minutes</option>)}
+                    {[10, 15, 20, 30, 45, 60].map(d => <option key={d} value={d}>{d} minutes</option>)}
                   </Select>
                 </FormField>
                 {canEdit && (
@@ -226,7 +225,7 @@ export function SettingsClient() {
       )}
 
       {/* Notifications Tab */}
-      {tab === "notifications" && (
+      {/* {tab === "notifications" && (
         <Card>
           <CardHeader><h3 className="font-semibold text-slate-700">Notification Settings</h3></CardHeader>
           <CardBody className="space-y-4">
@@ -250,10 +249,10 @@ export function SettingsClient() {
             </div>
           </CardBody>
         </Card>
-      )}
+      )} */}
 
       {/* Security / Change Password Tab */}
-      {tab === "security" && (
+      {/* {tab === "security" && (
         <Card>
           <CardHeader><h3 className="font-semibold text-slate-700">Change Password</h3></CardHeader>
           <CardBody className="max-w-md space-y-4">
@@ -273,7 +272,7 @@ export function SettingsClient() {
             </Button>
           </CardBody>
         </Card>
-      )}
+      )} */}
     </div>
   );
 }

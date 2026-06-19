@@ -5,6 +5,7 @@ import connectDB from "@/lib/db/mongoose";
 import { LabCatalog, LabTest } from "@/models/operations.model";
 import { apiSuccess, apiError, getIpFromHeaders } from "@/lib/utils";
 import { auditLog, hasPermission } from "@/lib/auth/audit";
+import { NotificationService } from "@/services/notification.service";
 
 interface Params { params: Promise<{ id: string }> }
 
@@ -92,6 +93,27 @@ export async function PUT(req: NextRequest, { params }: Params) {
     .lean();
 
   if (!test) return apiError("Lab test not found", 404);
+
+  // Notify when lab results are completed
+  if (body.status === "completed") {
+    const populatedTest = await LabTest.findById(id)
+      .populate("requestedBy", "_id")
+      .populate("patient", "firstName lastName")
+      .lean();
+
+    if (populatedTest?.requestedBy?._id) {
+      const patientData = populatedTest.patient as any;
+      await NotificationService.create({
+        userId: populatedTest.requestedBy._id.toString(),
+        type: "lab_result_ready",
+        title: "Lab Results Ready",
+        message: `Lab results for ${patientData?.firstName} ${patientData?.lastName} (${populatedTest.labTestId}) are ready for review`,
+        priority: "medium",
+        actionUrl: `/lab/${id}`,
+        metadata: { labTestId: populatedTest.labTestId },
+      });
+    }
+  }
 
   await auditLog({
     userId: session.user.id,

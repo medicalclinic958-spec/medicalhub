@@ -5,10 +5,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import axios from "axios";
-import { Plus, TrendingDown } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Plus, TrendingDown, Eye } from "lucide-react";
 import {
   Card, CardBody, Table, Th, Td, Button, Modal,
-  FormField, Input, Select, EmptyState, Pagination, Badge, Alert, StatCard,
+  FormField, Input, Select, EmptyState, Pagination, Badge, Alert, StatCard, StatusBadge,
 } from "@/components/ui";
 import { createExpenseSchema, CreateExpenseInput } from "@/lib/validations";
 import { formatDate, formatCurrency } from "@/lib/utils";
@@ -16,15 +17,17 @@ import { useSession } from "next-auth/react";
 
 interface Expense {
   _id: string; title: string; category: string; amount: number;
-  paymentMethod: string; vendor?: string; date: string;
+  paymentMethod: string; vendor?: string; date: string; status: string;
   createdBy: { firstName: string; lastName: string };
 }
 
 export function ExpensesClient() {
   const { data: session } = useSession();
   const qc = useQueryClient();
+  const router = useRouter();
   const [page, setPage] = useState(1);
   const [category, setCategory] = useState("");
+  const [status, setStatus] = useState("");
   const [from, setFrom] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0]);
   const [to, setTo] = useState(new Date().toISOString().split("T")[0]);
   const [createOpen, setCreateOpen] = useState(false);
@@ -35,8 +38,8 @@ export function ExpensesClient() {
   const canCreate = isSA || perms.includes("expenses:create");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["expenses", page, category, from, to],
-    queryFn: () => axios.get("/api/expenses", { params: { page, limit: 25, category, from, to } }).then(r => r.data),
+    queryKey: ["expenses", page, category, status, from, to],
+    queryFn: () => axios.get("/api/expenses", { params: { page, limit: 25, category, status, from, to } }).then(r => r.data),
   });
 
   const expenses: Expense[] = data?.data?.expenses || [];
@@ -71,10 +74,16 @@ export function ExpensesClient() {
 
       <Card>
         <CardBody className="py-3">
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3 items-center">
             <Select value={category} onChange={e => { setCategory(e.target.value); setPage(1); }} className="w-36">
               <option value="">All categories</option>
               {CATEGORIES.map(c => <option key={c} value={c} className="capitalize">{c}</option>)}
+            </Select>
+            <Select value={status} onChange={e => { setStatus(e.target.value); setPage(1); }} className="w-36">
+              <option value="">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
             </Select>
             <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-36" />
             <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-36" />
@@ -85,13 +94,13 @@ export function ExpensesClient() {
       <Card>
         <Table>
           <thead>
-            <tr><Th>Title</Th><Th>Category</Th><Th>Amount</Th><Th>Method</Th><Th>Vendor</Th><Th>Date</Th><Th>Added By</Th></tr>
+            <tr><Th>Title</Th><Th>Category</Th><Th>Amount</Th><Th>Method</Th><Th>Vendor</Th><Th>Status</Th><Th>Date</Th><Th>Actions</Th></tr>
           </thead>
           <tbody>
             {isLoading ? (
-              [...Array(8)].map((_, i) => <tr key={i}>{[...Array(7)].map((_, j) => <Td key={j}><div className="h-4 bg-slate-100 rounded animate-pulse" /></Td>)}</tr>)
+              [...Array(8)].map((_, i) => <tr key={i}>{[...Array(8)].map((_, j) => <Td key={j}><div className="h-4 bg-slate-100 rounded animate-pulse" /></Td>)}</tr>)
             ) : expenses.length === 0 ? (
-              <tr><td colSpan={7}><EmptyState title="No expenses found" action={canCreate ? <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="w-3.5 h-3.5" /> Add Expense</Button> : undefined} /></td></tr>
+              <tr><td colSpan={8}><EmptyState title="No expenses found" action={canCreate ? <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="w-3.5 h-3.5" /> Add Expense</Button> : undefined} /></td></tr>
             ) : expenses.map(e => (
               <tr key={e._id} className="hover:bg-slate-50">
                 <Td><div className="font-medium text-slate-800">{e.title}</div></Td>
@@ -99,8 +108,13 @@ export function ExpensesClient() {
                 <Td><span className="font-semibold text-red-600">{formatCurrency(e.amount)}</span></Td>
                 <Td className="capitalize text-slate-500">{e.paymentMethod?.replace(/_/g, " ")}</Td>
                 <Td className="text-slate-400">{e.vendor || "—"}</Td>
+                <Td><StatusBadge status={e.status} /></Td>
                 <Td className="text-slate-400">{formatDate(e.date)}</Td>
-                <Td className="text-slate-400">{e.createdBy?.firstName} {e.createdBy?.lastName}</Td>
+                <Td>
+                  <button onClick={() => router.push(`/expenses/${e._id}`)} className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-all">
+                    <Eye className="w-3.5 h-3.5" />
+                  </button>
+                </Td>
               </tr>
             ))}
           </tbody>
@@ -134,7 +148,10 @@ export function ExpensesClient() {
               </Select>
             </FormField>
           </div>
-          <FormField label="Vendor / Payee" error={errors.vendor?.message}><Input {...register("vendor")} placeholder="Optional" /></FormField>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Vendor / Payee" error={errors.vendor?.message}><Input {...register("vendor")} placeholder="Optional" /></FormField>
+            <FormField label="Receipt URL" error={errors.receiptUrl?.message}><Input {...register("receiptUrl")} placeholder="Optional link" /></FormField>
+          </div>
           <FormField label="Description" error={errors.description?.message}>
             <textarea {...register("description")} rows={2} className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </FormField>

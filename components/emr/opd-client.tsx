@@ -348,7 +348,6 @@ export function OPDClient() {
                       <Select {...register(`diagnosis.${i}.type`)} className="w-28">
                         <option value="primary">Primary</option>
                         <option value="secondary">Secondary</option>
-                        <option value="differential">Differential</option>
                       </Select>
                       {diagFields.fields.length > 1 && (
                         <button type="button" onClick={() => diagFields.remove(i)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg">

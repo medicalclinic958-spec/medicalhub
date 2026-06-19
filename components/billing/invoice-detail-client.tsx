@@ -84,6 +84,19 @@ export function InvoiceDetailClient({ invoiceId }: { invoiceId: string }) {
     onError: (e: unknown) => setPaymentError((e as { response?: { data?: { error?: string } } })?.response?.data?.error || "Payment failed"),
   });
 
+  const handlePrint = () => {
+    const printContent = document.getElementById("printable-invoice");
+    const originalContent = document.body.innerHTML;
+    if (printContent) {
+      const printStyles = document.querySelectorAll('style, link[rel="stylesheet"]');
+      const stylesHtml = Array.from(printStyles).map(s => s.outerHTML).join('');
+      document.body.innerHTML = stylesHtml + printContent.innerHTML;
+      window.print();
+      document.body.innerHTML = originalContent;
+      window.location.reload();
+    }
+  };
+
   if (isLoading) return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-96 w-full" /></div>;
   if (!inv) return <div><Alert type="error">Invoice not found.</Alert></div>;
 
@@ -102,6 +115,7 @@ export function InvoiceDetailClient({ invoiceId }: { invoiceId: string }) {
 
   return (
     <div className="space-y-5 max-w-4xl">
+      {/* Action Buttons - hidden on print */}
       <div className="flex items-center justify-between no-print">
         <Link href="/billing"><Button variant="ghost" size="sm"><ArrowLeft className="w-4 h-4" /> All Invoices</Button></Link>
         <div className="flex gap-2">
@@ -110,14 +124,15 @@ export function InvoiceDetailClient({ invoiceId }: { invoiceId: string }) {
               <Plus className="w-3.5 h-3.5" /> Record Payment
             </Button>
           )}
-          <Button variant="secondary" size="sm" onClick={() => window.print()}>
+          <Button variant="secondary" size="sm" onClick={handlePrint}>
             <Printer className="w-3.5 h-3.5" /> Print
           </Button>
         </div>
       </div>
 
-      <Card>
-        <CardBody>
+      {/* Printable Invoice */}
+      <div id="printable-invoice" className="print-area">
+        <div className="bg-white">
           {/* Invoice header */}
           <div className="flex items-start justify-between pb-5 border-b border-slate-200">
             <div>
@@ -136,7 +151,7 @@ export function InvoiceDetailClient({ invoiceId }: { invoiceId: string }) {
             </div>
           </div>
 
-          {/* Bill To / Supplier / Doctor */}
+          {/* Bill To / Supplier */}
           <div className="grid grid-cols-2 gap-6 py-5 border-b border-slate-200">
             <div>
               {inv.invoiceType === "pharmacy_purchase" && inv.supplier ? (
@@ -170,25 +185,31 @@ export function InvoiceDetailClient({ invoiceId }: { invoiceId: string }) {
 
           {/* Line items */}
           <div className="py-5 border-b border-slate-200">
-            <Table>
+            <table className="w-full text-sm">
               <thead>
-                <tr><Th>Description</Th><Th>Category</Th><Th>Qty</Th><Th>Unit Price</Th><Th>Total</Th></tr>
+                <tr className="border-b border-slate-200">
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-slate-500 uppercase">Description</th>
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-slate-500 uppercase">Category</th>
+                  <th className="text-right py-2 px-3 text-xs font-semibold text-slate-500 uppercase">Qty</th>
+                  <th className="text-right py-2 px-3 text-xs font-semibold text-slate-500 uppercase">Unit Price</th>
+                  <th className="text-right py-2 px-3 text-xs font-semibold text-slate-500 uppercase">Total</th>
+                </tr>
               </thead>
               <tbody>
                 {inv.items.map((item, i) => (
-                  <tr key={i}>
-                    <Td>
-                      <div>{item.description}</div>
+                  <tr key={i} className="border-b border-slate-100">
+                    <td className="py-2 px-3">
+                      <div className="text-slate-800">{item.description}</div>
                       {item.medicine?.name && <div className="text-xs text-slate-400">{item.medicine.name}</div>}
-                    </Td>
-                    <Td><Badge variant="outline" className="capitalize">{item.category}</Badge></Td>
-                    <Td>{item.quantity}</Td>
-                    <Td>{formatCurrency(item.unitPrice)}</Td>
-                    <Td className="font-medium">{formatCurrency(item.total)}</Td>
+                    </td>
+                    <td className="py-2 px-3"><span className="text-xs bg-slate-100 px-2 py-0.5 rounded capitalize">{item.category}</span></td>
+                    <td className="py-2 px-3 text-right">{item.quantity}</td>
+                    <td className="py-2 px-3 text-right">{formatCurrency(item.unitPrice)}</td>
+                    <td className="py-2 px-3 text-right font-medium">{formatCurrency(item.total)}</td>
                   </tr>
                 ))}
               </tbody>
-            </Table>
+            </table>
           </div>
 
           {/* Totals */}
@@ -219,7 +240,7 @@ export function InvoiceDetailClient({ invoiceId }: { invoiceId: string }) {
                   <div key={i} className="flex items-center justify-between text-sm bg-slate-50 rounded-lg px-3 py-2">
                     <div className="flex items-center gap-3">
                       <span className="font-medium text-slate-700">{formatCurrency(p.amount)}</span>
-                      <Badge variant="outline" className="capitalize">{p.method.replace(/_/g, " ")}</Badge>
+                      <span className="text-xs bg-slate-200 px-2 py-0.5 rounded capitalize">{p.method.replace(/_/g, " ")}</span>
                       {p.transactionRef && <span className="text-slate-400 font-mono text-xs">Ref: {p.transactionRef}</span>}
                     </div>
                     <div className="flex items-center gap-3 text-slate-400">
@@ -238,8 +259,8 @@ export function InvoiceDetailClient({ invoiceId }: { invoiceId: string }) {
               <p className="text-sm text-slate-600">{inv.notes}</p>
             </div>
           )}
-        </CardBody>
-      </Card>
+        </div>
+      </div>
 
       {/* Record Payment Modal */}
       <Modal open={paymentOpen} onClose={() => { setPaymentOpen(false); reset(); setPaymentError(""); }} title="Record Payment">
@@ -274,6 +295,16 @@ export function InvoiceDetailClient({ invoiceId }: { invoiceId: string }) {
           </div>
         </form>
       </Modal>
+
+      {/* Print-only styles */}
+      <style jsx>{`
+        @media print {
+          body * { visibility: hidden; }
+          #printable-invoice, #printable-invoice * { visibility: visible; }
+          #printable-invoice { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
+          .no-print { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 }

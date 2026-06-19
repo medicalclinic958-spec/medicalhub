@@ -5,6 +5,7 @@ import { Medicine } from "@/models/operations.model";
 import { apiSuccess, apiError, getPaginationParams, buildPagination, getIpFromHeaders } from "@/lib/utils";
 import { createMedicineSchema } from "@/lib/validations";
 import { auditLog, hasPermission } from "@/lib/auth/audit";
+import { NotificationService } from "@/services/notification.service";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -37,5 +38,28 @@ export async function POST(req: NextRequest) {
   await connectDB();
   const medicine = await Medicine.create(parsed.data);
   await auditLog({ userId: session.user.id, action: "create", module: "pharmacy", description: `Added medicine: ${medicine.name}`, resourceId: medicine._id.toString(), ipAddress: getIpFromHeaders(req.headers) });
+
+  if (medicine.currentStock <= medicine.minStockLevel) {
+    // Get all users with pharmacy permission or super admins
+    const { User } = await import("@/models/user.model");
+    const pharmacyUsers = await User.find({
+      $or: [
+        { isSuperAdmin: true },
+        { permissions: { $in: ["pharmacy:view"] } }
+      ]
+    }).select("_id").lean();
+
+    const userIds = pharmacyUsers.map(u => u._id.toString());
+    if (userIds.length > 0) {
+      await NotificationService.createBulk(userIds, {
+        type: "low_stock",
+        title: "Low Stock Alert",
+        message: `${medicine.name} is low on stock (${medicine.currentStock} ${medicine.unit} remaining)`,
+        priority: "high",
+        actionUrl: `/pharmacy`,
+        metadata: { medicineId: medicine._id.toString(), currentStock: medicine.currentStock },
+      });
+    }
+  }
   return apiSuccess(medicine, "Medicine added", 201);
 }

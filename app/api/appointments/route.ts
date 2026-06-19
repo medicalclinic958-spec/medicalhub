@@ -5,6 +5,7 @@ import { Appointment } from "@/models/clinical.model";
 import { apiSuccess, apiError, getPaginationParams, buildPagination, getIpFromHeaders, startOfDay, endOfDay } from "@/lib/utils";
 import { createAppointmentSchema } from "@/lib/validations";
 import { auditLog, hasPermission } from "@/lib/auth/audit";
+import { NotificationService } from "@/services/notification.service";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -112,5 +113,19 @@ export async function POST(req: NextRequest) {
     ipAddress: getIpFromHeaders(req.headers),
   });
 
+  const doctorData = populated.doctor as any;
+  console.log("Doctor data:", JSON.stringify(doctorData, null, 2));
+  if (doctorData?.user?._id) {
+    const patientData = populated.patient as any;
+    await NotificationService.create({
+      userId: doctorData.user._id.toString(),
+      type: "appointment_reminder",
+      title: "New Appointment",
+      message: `${patientData?.firstName} ${patientData?.lastName} has an appointment on ${new Date(populated.scheduledDate).toLocaleDateString()} at ${populated.scheduledTime}`,
+      priority: "medium",
+      actionUrl: `/appointments/${appointment._id}`,
+      metadata: { appointmentId: appointment._id.toString() },
+    });
+  }
   return apiSuccess(populated, "Appointment created successfully", 201);
 }

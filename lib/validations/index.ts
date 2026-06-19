@@ -371,9 +371,25 @@ export const createExpenseSchema = z.object({
   amount: z.number().min(0.01),
   paymentMethod: z.enum(["cash", "card", "bank_transfer", "mobile_wallet", "insurance"]),
   vendor: z.string().optional(),
+  receiptUrl: z.string().optional(),
   date: z.string().min(1),
   description: z.string().optional(),
+  status: z.enum(["pending", "approved", "rejected"]).optional(),
 });
+
+export const updateExpenseSchema = z.object({
+  title: z.string().min(1).optional(),
+  category: z.enum(["salary", "utility", "purchase", "equipment", "maintenance", "other"]).optional(),
+  amount: z.number().min(0.01).optional(),
+  paymentMethod: z.enum(["cash", "card", "bank_transfer", "mobile_wallet", "insurance"]).optional(),
+  vendor: z.string().optional(),
+  receiptUrl: z.string().optional(),
+  date: z.string().optional(),
+  description: z.string().optional(),
+  status: z.enum(["pending", "approved", "rejected"]).optional(),
+  approvedBy: z.string().optional(),
+});
+
 
 // ─── SETTINGS SCHEMAS ─────────────────────────────────────
 export const updateSettingsSchema = z.object({
@@ -450,4 +466,6 @@ export type UpdateMedicineInput = z.infer<typeof updateMedicineSchema>;
 export type CreateSupplierInput = z.infer<typeof createSupplierSchema>;
 export type UpdateSupplierInput = z.infer<typeof updateSupplierSchema>;
 export type UpdateInvoiceInput = z.infer<typeof updateInvoiceSchema>;
+export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;
+export type UpdateExpenseInput = z.infer<typeof updateExpenseSchema>;
 

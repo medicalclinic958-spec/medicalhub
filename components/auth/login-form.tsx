@@ -20,6 +20,7 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(
     urlError === "account_inactive" ? "Your account is not active. Contact admin." : null
   );
+  console.log(error)
 
   const {
     register,

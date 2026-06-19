@@ -568,7 +568,7 @@ export function EMRDetailClient({ emrId }: { emrId: string }) {
                             <div>
                                 <div className="flex items-center justify-between mb-2">
                                     <p className="text-sm font-medium text-slate-700">Symptoms</p>
-                                    <Button type="button" size="sm" variant="outline" onClick={() => symptomFields.append("")}>
+                                    <Button type="button" size="sm" variant="outline" onClick={() => symptomFields.append("" as any)}>
                                         <Plus className="w-3.5 h-3.5" /> Add
                                     </Button>
                                 </div>
@@ -641,7 +641,6 @@ export function EMRDetailClient({ emrId }: { emrId: string }) {
                                             <Select {...register(`diagnosis.${i}.type`)} className="w-28">
                                                 <option value="primary">Primary</option>
                                                 <option value="secondary">Secondary</option>
-                                                <option value="differential">Differential</option>
                                             </Select>
                                             {diagFields.fields.length > 1 && (
                                                 <button type="button" onClick={() => diagFields.remove(i)} className="p-2 text-red-400">

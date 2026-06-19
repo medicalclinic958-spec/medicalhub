@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import axios from "axios";
-import { Plus, Shield, Edit2, Trash2, Lock } from "lucide-react";
+import { Plus, Shield, Edit2, Trash2, Lock, Eye } from "lucide-react";
 import {
   Card, CardHeader, CardBody, Button, Modal, FormField,
   Input, Badge, Alert, EmptyState,
@@ -19,11 +19,11 @@ interface Role {
 }
 
 const MODULE_ORDER = [
-  "patients","appointments","doctors","emr","prescriptions","opd",
-  "billing","lab","pharmacy","inventory","expenses","staff",
-  "reports","users","roles","settings","audit_logs",
+  "patients", "appointments", "doctors", "emr", "prescriptions", "opd",
+  "billing", "lab", "pharmacy", "inventory", "expenses", "staff",
+  "reports", "users", "roles", "settings", "audit_logs",
 ];
-const ACTIONS = ["view","create","update","delete","approve","export"];
+const ACTIONS = ["view", "create", "update", "delete", "approve", "export"];
 const ACTION_COLORS: Record<string, string> = {
   view: "bg-blue-100 text-blue-700 border-blue-200",
   create: "bg-emerald-100 text-emerald-700 border-emerald-200",
@@ -40,6 +40,7 @@ export function RolesClient() {
   const [editRole, setEditRole] = useState<Role | null>(null);
   const [selectedPerms, setSelectedPerms] = useState<Set<string>>(new Set());
   const [createError, setCreateError] = useState("");
+  const [viewRole, setViewRole] = useState<Role | null>(null);
 
   const isSA = session?.user.isSuperAdmin;
   const perms = session?.user.permissions || [];
@@ -151,23 +152,28 @@ export function RolesClient() {
                       <p className="text-xs text-slate-400 font-mono">{role.slug}</p>
                     </div>
                   </div>
-                  {!role.isSystem && (
-                    <div className="flex gap-1 shrink-0">
-                      {canEdit && (
-                        <button onClick={() => openEdit(role)} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all">
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button
-                          onClick={() => { if (confirm(`Delete role "${role.name}"?`)) deleteMutation.mutate(role._id); }}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  )}
+                  <div className="flex gap-1 shrink-0">
+                    <button onClick={() => setViewRole(role)} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all" title="View all permissions">
+                      <Eye className="w-3.5 h-3.5" />
+                    </button>
+                    {!role.isSystem && (
+                      <>
+                        {canEdit && (
+                          <button onClick={() => openEdit(role)} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => { if (confirm(`Delete role "${role.name}"?`)) deleteMutation.mutate(role._id); }}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardBody className="flex-1">
@@ -185,7 +191,12 @@ export function RolesClient() {
                     </span>
                   ))}
                   {role.permissions.length > 12 && (
-                    <span className="text-xs text-slate-400">+{role.permissions.length - 12} more</span>
+                    <button
+                      onClick={() => setViewRole(role)}
+                      className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                    >
+                      +{role.permissions.length - 12} more
+                    </button>
                   )}
                 </div>
               </CardBody>
@@ -193,6 +204,47 @@ export function RolesClient() {
           ))}
         </div>
       )}
+
+      {/* View All Permissions Modal */}
+      <Modal
+        open={!!viewRole}
+        onClose={() => setViewRole(null)}
+        title={`Permissions: ${viewRole?.name || ""}`}
+        size="lg"
+      >
+        {viewRole && (
+          <div className="mt-2">
+            <p className="text-sm text-slate-500 mb-4">{viewRole.description}</p>
+            <p className="text-xs font-semibold text-slate-500 uppercase mb-3">
+              {viewRole.permissions.length} Permissions
+            </p>
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {MODULE_ORDER.filter(m => viewRole.permissions.some(p => p.module === m)).map(module => {
+                const modulePerms = viewRole.permissions.filter(p => p.module === module);
+                if (modulePerms.length === 0) return null;
+                return (
+                  <div key={module}>
+                    <p className="text-xs font-semibold text-slate-600 capitalize mb-1.5">{module.replace(/_/g, " ")}</p>
+                    <div className="flex flex-wrap gap-1">
+                      {modulePerms.map(p => (
+                        <span
+                          key={p._id}
+                          className={cn("text-xs px-2 py-0.5 rounded border font-medium", ACTION_COLORS[p.action] || ACTION_COLORS.view)}
+                        >
+                          {p.action}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex justify-end pt-4 border-t border-slate-100 mt-4">
+              <Button variant="secondary" onClick={() => setViewRole(null)}>Close</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Create/Edit Modal */}
       <Modal
@@ -212,7 +264,6 @@ export function RolesClient() {
             </FormField>
           </div>
 
-          {/* Permission matrix */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <label className="text-sm font-semibold text-slate-700">

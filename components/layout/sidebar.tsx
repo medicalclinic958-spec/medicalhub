@@ -8,45 +8,48 @@ import {
   LayoutDashboard, Users, Calendar, UserCircle, Stethoscope,
   FlaskConical, Pill, Package, Receipt, TrendingDown,
   BarChart3, Settings, Shield, ScrollText, ChevronLeft,
-  Building2, Clipboard,
-  FolderTree,
-  FoldersIcon,
+  Building2, Clipboard, FolderTree, FoldersIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface NavItem {
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   permission?: string;
-  badge?: number;
+  category: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Patients", href: "/patients", icon: UserCircle, permission: "patients:view" },
-  { label: "Appointments", href: "/appointments", icon: Calendar, permission: "appointments:view" },
-  { label: "Doctors", href: "/doctors", icon: Stethoscope, permission: "doctors:view" },
-  { label: "OPD / EMR", href: "/opd", icon: Clipboard, permission: "opd:view" },
-  { label: "Laboratory", href: "/lab", icon: FlaskConical, permission: "lab:view" },
-  { label: "Pharmacy", href: "/pharmacy", icon: Pill, permission: "pharmacy:view" },
-  { label: "Billing", href: "/billing", icon: Receipt, permission: "billing:view" },
-  { label: "Inventory", href: "/inventory", icon: Package, permission: "inventory:view" },
-  { label: "Expenses", href: "/expenses", icon: TrendingDown, permission: "expenses:view" },
-  { label: "Staff", href: "/staff", icon: Users, permission: "staff:view" },
-  { label: "Reports", href: "/reports", icon: BarChart3, permission: "reports:view" },
+  // Clinical
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, category: "Clinical" },
+  { label: "Patients", href: "/patients", icon: UserCircle, permission: "patients:view", category: "Clinical" },
+  { label: "Appointments", href: "/appointments", icon: Calendar, permission: "appointments:view", category: "Clinical" },
+  { label: "Doctors", href: "/doctors", icon: Stethoscope, permission: "doctors:view", category: "Clinical" },
+  { label: "OPD / EMR", href: "/opd", icon: Clipboard, permission: "emr:view", category: "Clinical" },
+  // Lab & Pharmacy
+  { label: "Test Catalog", href: "/labcatalog", icon: FoldersIcon, permission: "lab:view", category: "Lab & Pharmacy" },
+  { label: "Laboratory", href: "/lab", icon: FlaskConical, permission: "lab:view", category: "Lab & Pharmacy" },
+  { label: "Pharmacy", href: "/pharmacy", icon: Pill, permission: "pharmacy:view", category: "Lab & Pharmacy" },
+  { label: "Suppliers", href: "/suppliers", icon: Building2, permission: "pharmacy:view", category: "Lab & Pharmacy" },
+  // Staff
+  { label: "Staff", href: "/staff", icon: Users, permission: "staff:view", category: "Management" },
+  // Finance
+  { label: "Billing", href: "/billing", icon: Receipt, permission: "billing:view", category: "Finance" },
+  { label: "Inventory", href: "/inventory", icon: Package, permission: "inventory:view", category: "Finance" },
+  { label: "Expenses", href: "/expenses", icon: TrendingDown, permission: "expenses:view", category: "Finance" },
+  // Reports
+  { label: "Reports", href: "/reports", icon: BarChart3, permission: "reports:view", category: "Reports" },
 ];
 
 const ADMIN_ITEMS: NavItem[] = [
-  { label: "Users", href: "/users", icon: Shield, permission: "users:view" },
-  { label: "Roles", href: "/roles", icon: Building2, permission: "roles:view" },
-  { label: "Audit Logs", href: "/audit-logs", icon: ScrollText, permission: "audit_logs:view" },
-  { label: "Settings", href: "/settings", icon: Settings, permission: "settings:view" },
+  { label: "Users", href: "/users", icon: Shield, permission: "users:view", category: "Administration" },
+  { label: "Roles", href: "/roles", icon: Building2, permission: "roles:view", category: "Administration" },
+  { label: "Audit Logs", href: "/audit-logs", icon: ScrollText, permission: "audit_logs:view", category: "Administration" },
+  { label: "Settings", href: "/settings", icon: Settings, permission: "settings:view", category: "Administration" },
 ];
 
-const OTHER_ITEMS: NavItem[] = [
-  { label: "Test Catalog", href: "/labcatalog", icon: FoldersIcon, permission: "lab:view" },
-];
+const ALL_ITEMS = [...NAV_ITEMS, ...ADMIN_ITEMS];
 
 interface SidebarProps {
   session: Session;
@@ -64,12 +67,33 @@ export function Sidebar({ session }: SidebarProps) {
   };
 
   const isActive = (href: string) =>
-    href === "/dashboard" ? pathname === href : pathname === href || pathname.startsWith(href + "/")
+    href === "/dashboard" ? pathname === href : pathname === href || pathname.startsWith(href + "/");
+
+  // Group items by category
+  const groupedItems = ALL_ITEMS.filter((item) => canAccess(item.permission)).reduce((acc, item) => {
+    if (!acc[item.category]) acc[item.category] = [];
+    acc[item.category].push(item);
+    return acc;
+  }, {} as Record<string, NavItem[]>);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setCollapsed(true);
+      } else {
+        setCollapsed(false);
+      }
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   return (
     <aside
       className={cn(
-        "bg-slate-900 text-white flex flex-col transition-all duration-200 shrink-0",
+        "bg-slate-900 text-white flex flex-col transition-all duration-200 shrink-0 relative",
         collapsed ? "w-16" : "w-64"
       )}
     >
@@ -90,42 +114,30 @@ export function Sidebar({ session }: SidebarProps) {
         <button
           onClick={() => setCollapsed(!collapsed)}
           className={cn(
-            "ml-auto p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-all",
-            collapsed && "mx-auto"
+            "absolute right-[-12px] bottom-[13px] p-1 rounded-full bg-slate-700 text-slate-300 hover:text-white hover:bg-blue-600 transition-all shadow-md border-2 border-slate-900 z-10",
+            collapsed && "right-[-12px] rotate-180"
           )}
         >
-          <ChevronLeft className={cn("w-4 h-4 transition-transform", collapsed && "rotate-180")} />
+          <ChevronLeft className="w-3.5 h-3.5" />
         </button>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-0.5">
-        {NAV_ITEMS.filter((item) => canAccess(item.permission)).map((item) => (
-          <NavLink key={item.href} item={item} isActive={isActive(item.href)} collapsed={collapsed} />
-        ))}
-
-        {/* Admin section */}
-        {(isSuperAdmin || ADMIN_ITEMS.some((i) => canAccess(i.permission))) && (
-          <>
+      <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-3">
+        {Object.entries(groupedItems).map(([category, items]) => (
+          <div key={category}>
             {!collapsed && (
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider px-3 pt-4 pb-1">
-                Administration
+              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest px-3 pb-1.5">
+                {category}
               </p>
             )}
-            {collapsed && <div className="border-t border-slate-700 my-2 mx-2" />}
-            {ADMIN_ITEMS.filter((item) => canAccess(item.permission)).map((item) => (
-              <NavLink key={item.href} item={item} isActive={isActive(item.href)} collapsed={collapsed} />
-            ))}
-          </>
-        )}
-
-        {!collapsed && (
-          <p className="text-xs font-medium text-slate-500 uppercase tracking-wider px-3 pt-4 pb-1">
-            Others
-          </p>
-        )}
-        {OTHER_ITEMS.filter((item) => canAccess(item.permission)).map((item) => (
-          <NavLink key={item.href} item={item} isActive={isActive(item.href)} collapsed={collapsed} />
+            {collapsed && <div className="border-t border-slate-700/50 mb-1 mx-2" />}
+            <div className="space-y-0.5">
+              {items.map((item) => (
+                <NavLink key={item.href} item={item} isActive={isActive(item.href)} collapsed={collapsed} />
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
 
