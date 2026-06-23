@@ -15,18 +15,32 @@ export async function GET(req: NextRequest) {
   }
 
   await connectDB();
+
   const sp = req.nextUrl.searchParams;
   const { page, limit, skip } = getPaginationParams(sp);
   const filter: Record<string, unknown> = {};
 
+  // Doctor scope: only show their own appointments
+  if (!session.user.isSuperAdmin) {
+    const { Doctor } = await import("@/models/clinical.model");
+    const doctor = await Doctor.findOne({ user: session.user.id }).lean();
+    if (doctor) {
+      filter.doctor = doctor._id;
+    }
+  }
+
+  // Admin can filter by specific doctor
+  if (session.user.isSuperAdmin) {
+    const doctorId = sp.get("doctor") || "";
+    if (doctorId) filter.doctor = doctorId;
+  }
+
   const status = sp.get("status") || "";
   const date = sp.get("date") || "";
-  const doctorId = sp.get("doctor") || "";
   const patientId = sp.get("patient") || "";
   const today = sp.get("today") === "true";
 
   if (status) filter.status = { $in: status.split(",") };
-  if (doctorId) filter.doctor = doctorId;
   if (patientId) filter.patient = patientId;
 
   if (today) {
@@ -113,15 +127,14 @@ export async function POST(req: NextRequest) {
     ipAddress: getIpFromHeaders(req.headers),
   });
 
-  const doctorData = populated.doctor as any;
-  console.log("Doctor data:", JSON.stringify(doctorData, null, 2));
+  const doctorData = populated?.doctor as any;
   if (doctorData?.user?._id) {
-    const patientData = populated.patient as any;
+    const patientData = populated?.patient as any;
     await NotificationService.create({
       userId: doctorData.user._id.toString(),
       type: "appointment_reminder",
       title: "New Appointment",
-      message: `${patientData?.firstName} ${patientData?.lastName} has an appointment on ${new Date(populated.scheduledDate).toLocaleDateString()} at ${populated.scheduledTime}`,
+      message: `${patientData?.firstName} ${patientData?.lastName} has an appointment on ${new Date(populated?.scheduledDate).toLocaleDateString()} at ${populated?.scheduledTime}`,
       priority: "medium",
       actionUrl: `/appointments/${appointment._id}`,
       metadata: { appointmentId: appointment._id.toString() },

@@ -248,7 +248,6 @@ export function PatientsClient() {
           </div>
         )}
         <form onSubmit={handleSubmit((d) => {
-          console.log(d)
           return createMutation.mutate(d)
         })} className="space-y-4">
           {/* Basic Info */}

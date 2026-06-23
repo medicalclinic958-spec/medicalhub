@@ -74,11 +74,10 @@ export function LabDetailClient() {
     });
 
     const test: LabTestDetail | null = data?.data || null;
-    console.log(data?.data)
 
     const deleteMutation = useMutation({
         mutationFn: () => axios.delete(`/api/lab/${id}`),
-        onSuccess: () => router.push("/dashboard/lab"),
+        onSuccess: () => router.push("/lab"),
         onError: (e: unknown) => {
             alert((e as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed");
         },

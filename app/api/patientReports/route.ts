@@ -1,9 +1,8 @@
-// app/api/reports/route.ts
+// app/api/patientReports/route.ts
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth/auth.config";
 import connectDB from "@/lib/db/mongoose";
 import { Report, LabTest } from "@/models/operations.model";
-import { Patient } from "@/models/clinical.model";
 import { apiSuccess, apiError, getPaginationParams, buildPagination, getIpFromHeaders } from "@/lib/utils";
 import { auditLog, hasPermission } from "@/lib/auth/audit";
 import { z } from "zod";
@@ -17,22 +16,26 @@ const createReportSchema = z.object({
     additionalNotes: z.string().optional(),
 });
 
-// GET — list all reports
+// GET — list reports with optional labTest filter
 export async function GET(req: NextRequest) {
     const session = await auth();
     if (!session) return apiError("Unauthorized", 401);
-    if (!hasPermission(session.user.permissions, session.user.isSuperAdmin, "reports", "view")) return apiError("Forbidden", 403);
+    if (!hasPermission(session.user.permissions, session.user.isSuperAdmin, "lab", "view")) return apiError("Forbidden", 403);
 
     await connectDB();
     const sp = req.nextUrl.searchParams;
     const { page, limit, skip } = getPaginationParams(sp);
+    const labTestId = sp.get("labTest") || "";
+
+    const filter: Record<string, unknown> = {};
+    if (labTestId) filter.labTest = labTestId;
 
     const [reports, total] = await Promise.all([
-        Report.find().skip(skip).limit(limit).sort({ createdAt: -1 })
+        Report.find(filter).skip(skip).limit(limit).sort({ createdAt: -1 })
             .populate("labTest", "labTestId status")
             .populate("createdBy", "firstName lastName")
             .lean(),
-        Report.countDocuments(),
+        Report.countDocuments(filter),
     ]);
 
     return apiSuccess(reports, "Reports fetched", 200, buildPagination(total, page, limit));
@@ -42,7 +45,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
     const session = await auth();
     if (!session) return apiError("Unauthorized", 401);
-    if (!hasPermission(session.user.permissions, session.user.isSuperAdmin, "reports", "create")) return apiError("Forbidden", 403);
+    if (!hasPermission(session.user.permissions, session.user.isSuperAdmin, "lab", "create")) return apiError("Forbidden", 403);
 
     const body = await req.json();
     const parsed = createReportSchema.safeParse(body);
@@ -50,7 +53,6 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
 
-    // Fetch lab test
     const labTest = await LabTest.findById(parsed.data.labTestId)
         .populate("patient", "firstName lastName patientId dateOfBirth gender bloodGroup")
         .lean();
@@ -60,19 +62,14 @@ export async function POST(req: NextRequest) {
         return apiError("Report can only be generated for completed or delivered orders", 400);
     }
 
-    // Validate all tests have results
     const missingResults = labTest.tests.filter(
         t => !labTest.results?.some(r => r.testName === t.testName && r.value)
     );
 
     if (missingResults.length > 0) {
-        return apiError(
-            `Missing results for: ${missingResults.map(t => t.testName).join(", ")}`,
-            400
-        );
+        return apiError(`Missing results for: ${missingResults.map(t => t.testName).join(", ")}`, 400);
     }
 
-    // Calculate age
     const dob = (labTest.patient as { dateOfBirth?: string })?.dateOfBirth;
     let age = "-";
     if (dob) {
@@ -87,15 +84,10 @@ export async function POST(req: NextRequest) {
     }
 
     const patient = labTest.patient as unknown as {
-        firstName: string;
-        lastName: string;
-        patientId: string;
-        dateOfBirth?: string;
-        gender?: string;
-        bloodGroup?: string;
+        firstName: string; lastName: string; patientId: string;
+        dateOfBirth?: string; gender?: string; bloodGroup?: string;
     };
 
-    // Create report
     const report = await Report.create({
         labTest: labTest._id,
         patient: {
@@ -115,8 +107,8 @@ export async function POST(req: NextRequest) {
     await auditLog({
         userId: session.user.id,
         action: "create",
-        module: "reports",
-        description: `Generated report ${report.reportId}`,
+        module: "lab",
+        description: `Generated patient report ${report.reportId}`,
         resourceId: report._id.toString(),
         resourceType: "Report",
         ipAddress: getIpFromHeaders(req.headers),

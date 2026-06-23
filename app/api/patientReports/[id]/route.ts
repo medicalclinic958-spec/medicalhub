@@ -27,7 +27,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 export async function PUT(req: NextRequest, { params }: Params) {
     const session = await auth();
     if (!session) return apiError("Unauthorized", 401);
-    if (!hasPermission(session.user.permissions, session.user.isSuperAdmin, "reports", "update")) return apiError("Forbidden", 403);
+    if (!hasPermission(session.user.permissions, session.user.isSuperAdmin, "lab", "update")) return apiError("Forbidden", 403);
 
     const body = await req.json();
     await connectDB();

@@ -1,11 +1,12 @@
-// app/api/lab/route.ts
+// app/api/reports/route.ts
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth/auth.config";
 import connectDB from "@/lib/db/mongoose";
-import { LabTest, LabCatalog } from "@/models/operations.model";
+import { Report, LabTest, LabCatalog } from "@/models/operations.model";
 import { apiSuccess, apiError, getPaginationParams, buildPagination, getIpFromHeaders } from "@/lib/utils";
-import { createLabTestSchema } from "@/lib/validations";
 import { auditLog, hasPermission } from "@/lib/auth/audit";
+import { z } from "zod";
+import { createLabTestSchema } from "@/lib/validations";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -19,6 +20,12 @@ export async function GET(req: NextRequest) {
   const patientId = sp.get("patient") || "";
 
   const filter: Record<string, unknown> = {};
+
+  // Non-admin users only see tests they requested
+  if (!session.user.isSuperAdmin) {
+    filter.requestedBy = session.user.id;
+  }
+
   if (status) filter.status = status;
   if (patientId) filter.patient = patientId;
 

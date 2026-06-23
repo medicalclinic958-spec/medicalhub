@@ -281,7 +281,7 @@ const EMRSchema = new Schema<IEMR>(
     diagnosis: [
       {
         icdCode: String,
-        description: { type: String, required: true },
+        description: { type: String },
         type: { type: String, enum: ["primary", "secondary"], default: "primary" },
       },
     ],

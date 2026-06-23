@@ -39,13 +39,13 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (
-    token.mustChangePassword &&
-    !pathname.startsWith("/settings") &&
-    !pathname.startsWith("/api/")
-  ) {
-    return NextResponse.redirect(new URL("/settings?tab=security", req.url));
-  }
+  // if (
+  //   token.mustChangePassword &&
+  //   !pathname.startsWith("/settings") &&
+  //   !pathname.startsWith("/api/")
+  // ) {
+  //   return NextResponse.redirect(new URL("/settings?tab=security", req.url));
+  // }
 
   const isSuperAdmin = token.isSuperAdmin as boolean;
   const permissions = (token.permissions as string[]) || [];
@@ -57,7 +57,9 @@ export async function proxy(req: NextRequest) {
       "/doctors": "doctors:view",
       "/billing": "billing:view",
       "/lab": "lab:view",
+      "/labcatalog": "labcatalog:view",
       "/pharmacy": "pharmacy:view",
+      "/suppliers": "suppliers:view",
       "/inventory": "inventory:view",
       "/staff": "staff:view",
       "/reports": "reports:view",
@@ -65,7 +67,8 @@ export async function proxy(req: NextRequest) {
       "/roles": "roles:view",
       "/audit-logs": "audit_logs:view",
       "/expenses": "expenses:view",
-      "/opd": "opd:view",
+      "/opd": "emr:view",
+      "/settings": "settings:view",
     };
 
     for (const [route, perm] of Object.entries(ROUTE_PERMISSIONS)) {
@@ -83,21 +86,28 @@ export async function proxy(req: NextRequest) {
         "/api/appointments": "appointments:view",
         "/api/doctors": "doctors:view",
         "/api/billing": "billing:view",
+        "/api/invoice": "billing:view",
         "/api/lab": "lab:view",
+        "/api/labcatalog": "labcatalog:view",
         "/api/pharmacy": "pharmacy:view",
+        "/api/supplier": "suppliers:view",
         "/api/inventory": "inventory:view",
+        "/api/staff": "staff:view",
         "/api/users": "users:view",
         "/api/roles": "roles:view",
         "/api/audit-logs": "audit_logs:view",
         "/api/reports": "reports:view",
         "/api/expenses": "expenses:view",
         "/api/emr": "emr:view",
+        "/api/opd": "emr:view",
         "/api/prescriptions": "prescriptions:view",
+        "/api/settings": "settings:view",
+        "/api/notifications": "",
       };
 
       for (const [route, perm] of Object.entries(API_PERMISSIONS)) {
         if (pathname.startsWith(route)) {
-          if (!permissions.includes(perm)) {
+          if (perm && !permissions.includes(perm)) {
             return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
           }
           break;

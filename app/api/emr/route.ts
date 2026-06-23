@@ -22,13 +22,27 @@ export async function GET(req: NextRequest) {
   const toDate = sp.get("toDate") || "";
 
   const filter: Record<string, unknown> = {};
+
+  // Doctor scope: only show their own EMR records
+  if (!session.user.isSuperAdmin) {
+    const { Doctor } = await import("@/models/clinical.model");
+    const doctor = await Doctor.findOne({ user: session.user.id }).lean();
+    if (doctor) {
+      filter.doctor = doctor._id;
+    }
+  }
+
+  // Admin can filter by specific doctor
+  if (session.user.isSuperAdmin && doctorId) {
+    filter.doctor = doctorId;
+  }
+
   if (patient) filter.patient = patient;
-  if (doctorId) filter.doctor = doctorId;
 
   if (fromDate || toDate) {
-    filter.visitDate = {};
-    if (fromDate) filter.visitDate.$gte = new Date(fromDate);
-    if (toDate) filter.visitDate.$lte = new Date(toDate);
+    (filter as any).visitDate = {};
+    if (fromDate) (filter as any).visitDate.$gte = new Date(fromDate);
+    if (toDate) (filter as any).visitDate.$lte = new Date(toDate);
   }
 
   const [records, total] = await Promise.all([

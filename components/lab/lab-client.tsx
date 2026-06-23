@@ -97,6 +97,7 @@ export function LabClient() {
       setCreateError((e as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed"),
   });
 
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => axios.delete(`/api/labcatalog/${id}`),
     onSuccess: () => {

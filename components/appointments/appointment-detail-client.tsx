@@ -158,10 +158,16 @@ export function AppointmentDetailClient({ appointmentId }: { appointmentId: stri
     return (
         <div className="space-y-5 max-w-4xl mx-auto">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <Link href="/appointments">
-                    <Button variant="ghost" size="sm"><ArrowLeft className="w-4 h-4" /> All Appointments</Button>
-                </Link>
+            <div className="flex items-center gap-2">
+                {canUpdate && (
+                    <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => router.push(`/opd?appointmentId=${a._id}&patientId=${a.patient?._id}`)}
+                    >
+                        <FileText className="w-3.5 h-3.5" /> Create EMR
+                    </Button>
+                )}
                 <Button variant="outline" size="sm" onClick={openEditModal}>
                     <Edit2 className="w-3.5 h-3.5" /> Edit
                 </Button>

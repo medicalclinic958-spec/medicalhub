@@ -193,8 +193,9 @@ const LabTestSchema = new Schema<ILabTest>(
 
 LabTestSchema.pre("save", async function () {
   if (!this.labTestId) {
-    const count = await mongoose.models.LabTest.countDocuments();
-    this.labTestId = `LAB-${String(count + 1).padStart(6, "0")}`;
+    const last = await mongoose.models.LabTest.findOne({}).sort({ _id: -1 }).lean();
+    const lastNum = last?.labTestId ? parseInt(last.labTestId.replace("LAB-", "")) : 0;
+    this.labTestId = `LAB-${String(lastNum + 1).padStart(6, "0")}`;
   }
 });
 

@@ -184,7 +184,7 @@ export const createEMRSchema = z.object({
   }).optional(),
   diagnosis: z.array(z.object({
     icdCode: z.string().optional(),
-    description: z.string().min(1, "Diagnosis description is required"),
+    description: z.string().optional(),
     type: z.enum(["primary", "secondary"]).default("primary"),
   })).optional(),
   treatmentPlan: z.string().optional(),
