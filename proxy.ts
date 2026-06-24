@@ -39,13 +39,13 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // if (
-  //   token.mustChangePassword &&
-  //   !pathname.startsWith("/settings") &&
-  //   !pathname.startsWith("/api/")
-  // ) {
-  //   return NextResponse.redirect(new URL("/settings?tab=security", req.url));
-  // }
+  if (
+    token.mustChangePassword &&
+    !pathname.startsWith("/profile") &&
+    !pathname.startsWith("/api/")
+  ) {
+    return NextResponse.redirect(new URL("/profile", req.url));
+  }
 
   const isSuperAdmin = token.isSuperAdmin as boolean;
   const permissions = (token.permissions as string[]) || [];

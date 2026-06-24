@@ -9,6 +9,7 @@ import {
   FlaskConical, Pill, Package, Receipt, TrendingDown,
   BarChart3, Settings, Shield, ScrollText, ChevronLeft,
   Building2, Clipboard, FolderTree, FoldersIcon,
+  PersonStanding,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -23,7 +24,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   // Clinical
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, category: "Clinical" },
-  { label: "Patients", href: "/patients", icon: UserCircle, permission: "patients:view", category: "Clinical" },
+  { label: "Patients", href: "/patients", icon: PersonStanding, permission: "patients:view", category: "Clinical" },
   { label: "Appointments", href: "/appointments", icon: Calendar, permission: "appointments:view", category: "Clinical" },
   { label: "Doctors", href: "/doctors", icon: Stethoscope, permission: "doctors:view", category: "Clinical" },
   { label: "OPD / EMR", href: "/opd", icon: Clipboard, permission: "emr:view", category: "Clinical" },
@@ -40,6 +41,8 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Expenses", href: "/expenses", icon: TrendingDown, permission: "expenses:view", category: "Finance" },
   // Reports
   { label: "Reports", href: "/reports", icon: BarChart3, permission: "reports:view", category: "Reports" },
+  // Personal
+  { label: "Profile", href: "/profile", icon: UserCircle, category: "Personal" },
 ];
 
 const ADMIN_ITEMS: NavItem[] = [

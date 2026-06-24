@@ -43,7 +43,7 @@ export const authOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }: { token: Record<string, unknown>; user?: Record<string, unknown> }) {
+    async jwt({ token, user, trigger }: { token: Record<string, unknown>; user?: Record<string, unknown>; trigger?: string }) {
       if (user) {
         token.id = user.id;
         token.fullName = user.fullName;
@@ -54,6 +54,17 @@ export const authOptions = {
         token.status = user.status;
         token.mustChangePassword = user.mustChangePassword;
       }
+
+      // Refetch from DB when session is updated
+      if (trigger === "update" && token.id) {
+        await connectDB();
+        const dbUser = await User.findById(token.id).lean();
+        if (dbUser) {
+          token.mustChangePassword = dbUser.mustChangePassword;
+          token.status = dbUser.status;
+        }
+      }
+
       return token;
     },
     async session({ session, token }: { session: Record<string, unknown>; token: Record<string, unknown> }) {
