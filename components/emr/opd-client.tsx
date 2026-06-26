@@ -46,7 +46,7 @@ export function OPDClient() {
 
   const { data: patientsData } = useQuery({
     queryKey: ["patients-select-opd", search],
-    queryFn: () => axios.get("/api/patients", { params: { limit: 50, search } }).then(r => r.data),
+    queryFn: () => axios.get("/api/publicPatients", { params: { limit: 50, search } }).then(r => r.data),
     enabled: createOpen && !urlPatientId,
   });
 

@@ -36,7 +36,7 @@ export function PharmacySaleSection({ watchedItems, setValue, register }: Props)
 
     const { data: patientsData } = useQuery({
         queryKey: ["patients-select"],
-        queryFn: () => axios.get("/api/patients", { params: { limit: 200 } }).then(r => r.data),
+        queryFn: () => axios.get("/api/publicPatients", { params: { limit: 200 } }).then(r => r.data),
     });
 
     const medicines = medicinesData?.data || [];

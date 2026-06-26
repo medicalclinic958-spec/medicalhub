@@ -55,7 +55,7 @@ export function LabClient() {
 
   const { data: patientsData } = useQuery({
     queryKey: ["patients-select"],
-    queryFn: () => axios.get("/api/patients", { params: { limit: 200 } }).then(r => r.data),
+    queryFn: () => axios.get("/api/publicPatients", { params: { limit: 200 } }).then(r => r.data),
     enabled: createOpen,
   });
 

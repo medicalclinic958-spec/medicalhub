@@ -24,27 +24,6 @@ export async function GET(req: NextRequest) {
 
   const filter: Record<string, unknown> = {};
 
-  // Non-admin: only show patients linked to this doctor
-  if (!session.user.isSuperAdmin) {
-    const fullAccessRoles = ["receptionist", "accountant"];
-    const userRole = session.user.roleSlug || "";
-
-    if (!fullAccessRoles.includes(userRole)) {
-      const { Doctor, Appointment, EMR } = await import("@/models/clinical.model");
-      const doctor = await Doctor.findOne({ user: session.user.id }).lean();
-      if (doctor) {
-        const [doctorAppointments, doctorEMRs] = await Promise.all([
-          Appointment.find({ doctor: doctor._id }).distinct("patient").lean(),
-          EMR.find({ doctor: doctor._id }).distinct("patient").lean(),
-        ]);
-        const patientIds = [...new Set([...doctorAppointments, ...doctorEMRs])];
-        filter._id = { $in: patientIds.length ? patientIds : [null] };
-      } else {
-        filter._id = { $in: [] };
-      }
-    }
-  }
-
   if (status) filter.status = status;
   if (bloodGroup) filter.bloodGroup = bloodGroup;
   if (search) {

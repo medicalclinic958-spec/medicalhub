@@ -28,7 +28,7 @@ interface Props {
 export function OpdInvoiceSection({ selectedDoctor, setSelectedDoctor, selectedPatient, setSelectedPatient, watchedItems, setValue }: Props) {
     const { data: patientsData } = useQuery({
         queryKey: ["patients-select"],
-        queryFn: () => axios.get("/api/patients", { params: { limit: 200 } }).then(r => r.data),
+        queryFn: () => axios.get("/api/publicPatients", { params: { limit: 200 } }).then(r => r.data),
     });
 
     const { data: doctorsData } = useQuery({

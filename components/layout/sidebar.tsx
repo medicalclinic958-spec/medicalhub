@@ -10,6 +10,8 @@ import {
   BarChart3, Settings, Shield, ScrollText, ChevronLeft,
   Building2, Clipboard, FolderTree, FoldersIcon,
   PersonStanding,
+  Bot,
+  Sparkles,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -32,7 +34,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Test Catalog", href: "/labcatalog", icon: FoldersIcon, permission: "lab:view", category: "Lab & Pharmacy" },
   { label: "Laboratory", href: "/lab", icon: FlaskConical, permission: "lab:view", category: "Lab & Pharmacy" },
   { label: "Pharmacy", href: "/pharmacy", icon: Pill, permission: "pharmacy:view", category: "Lab & Pharmacy" },
-  { label: "Suppliers", href: "/suppliers", icon: Building2, permission: "pharmacy:view", category: "Lab & Pharmacy" },
+  { label: "Suppliers", href: "/supplier", icon: Building2, permission: "pharmacy:view", category: "Lab & Pharmacy" },
   // Staff
   { label: "Staff", href: "/staff", icon: Users, permission: "staff:view", category: "Management" },
   // Finance
@@ -43,6 +45,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Reports", href: "/reports", icon: BarChart3, permission: "reports:view", category: "Reports" },
   // Personal
   { label: "Profile", href: "/profile", icon: UserCircle, category: "Personal" },
+  { label: "AI Assistant", href: "/ai-assistant", icon: Sparkles, category: "Personal" },
 ];
 
 const ADMIN_ITEMS: NavItem[] = [
