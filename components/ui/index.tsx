@@ -8,12 +8,12 @@ import { useState, useEffect, createContext, useContext, ReactNode } from "react
 type BadgeVariant = "default" | "success" | "warning" | "danger" | "info" | "outline";
 
 const badgeVariants: Record<BadgeVariant, string> = {
-  default: "bg-slate-100 text-slate-700",
-  success: "bg-emerald-100 text-emerald-700",
-  warning: "bg-amber-100 text-amber-700",
+  default: "bg-gray-100 text-gray-700",
+  success: "bg-teal-100 text-teal-700",
+  warning: "bg-teal-50 text-teal-700",
   danger: "bg-red-100 text-red-700",
-  info: "bg-blue-100 text-blue-700",
-  outline: "border border-slate-300 text-slate-600",
+  info: "bg-teal-50 text-teal-700",
+  outline: "border border-gray-300 text-gray-600",
 };
 
 export function Badge({
@@ -77,7 +77,7 @@ export function Card({
   className?: string;
 }) {
   return (
-    <div className={cn("bg-white rounded-xl border border-slate-200 shadow-sm", className)}>
+    <div className={cn("bg-white rounded-xl border border-gray-300", className)}>
       {children}
     </div>
   );
@@ -85,7 +85,7 @@ export function Card({
 
 export function CardHeader({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("px-6 py-4 border-b border-slate-100", className)}>{children}</div>
+    <div className={cn("px-6 py-4 border-b border-gray-100", className)}>{children}</div>
   );
 }
 
@@ -98,46 +98,29 @@ export function StatCard({
   title,
   value,
   icon: Icon,
-  trend,
-  color = "blue",
   loading = false,
 }: {
   title: string;
   value: string | number | null;
   icon: React.ComponentType<{ className?: string }>;
   trend?: { value: number; label: string };
-  color?: "blue" | "emerald" | "amber" | "red" | "purple";
   loading?: boolean;
 }) {
-  const colorMap = {
-    blue: { bg: "bg-blue-50", icon: "text-blue-600", iconBg: "bg-blue-100" },
-    emerald: { bg: "bg-emerald-50", icon: "text-emerald-600", iconBg: "bg-emerald-100" },
-    amber: { bg: "bg-amber-50", icon: "text-amber-600", iconBg: "bg-amber-100" },
-    red: { bg: "bg-red-50", icon: "text-red-600", iconBg: "bg-red-100" },
-    purple: { bg: "bg-purple-50", icon: "text-purple-600", iconBg: "bg-purple-100" },
-  };
-  const c = colorMap[color];
-
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+    <div className="bg-white rounded-xl border border-gray-300 p-5">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm text-slate-500 font-medium">{title}</p>
+          <p className="text-xs text-gray-500 font-medium">{title}</p>
           {loading ? (
-            <div className="mt-1.5 h-8 w-20 bg-slate-100 rounded animate-pulse" />
+            <div className="mt-1.5 h-8 w-20 bg-gray-100 rounded animate-pulse" />
           ) : (
-            <p className="text-2xl font-bold text-slate-800 mt-0.5">
+            <p className="text-2xl font-bold text-gray-800 mt-0.5">
               {value ?? "—"}
             </p>
           )}
-          {trend && !loading && (
-            <p className={cn("text-xs mt-1", trend.value >= 0 ? "text-emerald-600" : "text-red-500")}>
-              {trend.value >= 0 ? "+" : ""}{trend.value}% {trend.label}
-            </p>
-          )}
         </div>
-        <div className={cn("p-2.5 rounded-xl", c.iconBg)}>
-          <Icon className={cn("w-5 h-5", c.icon)} />
+        <div className="p-2.5 rounded-xl bg-teal-50">
+          <Icon className="w-5 h-5 text-teal-600" />
         </div>
       </div>
     </div>
@@ -148,7 +131,7 @@ export function StatCard({
 export function Table({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div className={cn("overflow-x-auto", className)}>
-      <table className="w-full text-sm">{children}</table>
+      <table className="w-full text-xs">{children}</table>
     </div>
   );
 }
@@ -157,7 +140,7 @@ export function Th({ children, className }: { children: ReactNode; className?: s
   return (
     <th
       className={cn(
-        "px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50 first:rounded-tl-lg last:rounded-tr-lg",
+        "px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50 first:rounded-tl-lg last:rounded-tr-lg",
         className
       )}
     >
@@ -168,7 +151,7 @@ export function Th({ children, className }: { children: ReactNode; className?: s
 
 export function Td({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <td className={cn("px-4 py-3 text-slate-700 border-t border-slate-100", className)}>
+    <td className={cn("px-4 py-3 text-xs text-gray-700 border-t border-gray-100", className)}>
       {children}
     </td>
   );
@@ -205,18 +188,18 @@ export function Modal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50 cursor-pointer" onClick={onClose} />
       <div
         className={cn(
-          "relative bg-white rounded-2xl shadow-2xl w-full flex flex-col max-h-[90vh]",
+          "relative bg-white rounded-2xl w-full flex flex-col max-h-[90vh]",
           sizeMap[size]
         )}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 shrink-0">
-          <h2 className="text-base font-semibold text-slate-800">{title}</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-300 shrink-0">
+          <h2 className="text-sm font-semibold text-gray-800">{title}</h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -243,12 +226,12 @@ export function FormField({
 }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-700 mb-1.5">
+      <label className="block text-xs font-medium text-gray-700 mb-1.5">
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
       </label>
       {children}
-      {hint && !error && <p className="text-xs text-slate-400 mt-1">{hint}</p>}
+      {hint && !error && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
       {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
     </div>
   );
@@ -263,10 +246,10 @@ export function Input({
   return (
     <input
       className={cn(
-        "w-full px-3 py-2 rounded-lg border text-sm text-slate-800 placeholder:text-slate-400",
-        "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all",
-        "disabled:bg-slate-50 disabled:text-slate-400",
-        error ? "border-red-400 bg-red-50" : "border-slate-300 bg-white",
+        "w-full px-3 py-2 rounded-lg border text-xs text-gray-800 placeholder:text-gray-400",
+        "focus:outline-none focus:border-teal-500 transition-all",
+        "disabled:bg-gray-50 disabled:text-gray-400",
+        error ? "border-red-400 bg-red-50" : "border-gray-300 bg-white",
         className
       )}
       {...props}
@@ -284,10 +267,10 @@ export function Select({
   return (
     <select
       className={cn(
-        "w-full px-3 py-2 rounded-lg border text-sm text-slate-800",
-        "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all",
-        "disabled:bg-slate-50 disabled:text-slate-400",
-        error ? "border-red-400 bg-red-50" : "border-slate-300 bg-white",
+        "w-full px-3 py-2 rounded-lg border text-xs text-gray-800",
+        "focus:outline-none focus:border-teal-500 transition-all",
+        "disabled:bg-gray-50 disabled:text-gray-400",
+        error ? "border-red-400 bg-red-50" : "border-gray-300 bg-white",
         className
       )}
       {...props}
@@ -301,11 +284,11 @@ export function Select({
 type ButtonVariant = "primary" | "secondary" | "danger" | "ghost" | "outline";
 
 const btnVariants: Record<ButtonVariant, string> = {
-  primary: "bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white shadow-sm",
-  secondary: "bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700",
-  danger: "bg-red-600 hover:bg-red-500 active:bg-red-700 text-white",
-  ghost: "hover:bg-slate-100 text-slate-600 hover:text-slate-800",
-  outline: "border border-slate-300 hover:bg-slate-50 text-slate-700",
+  primary: "bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white cursor-pointer",
+  secondary: "bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-700 cursor-pointer",
+  danger: "bg-red-600 hover:bg-red-500 active:bg-red-700 text-white cursor-pointer",
+  ghost: "hover:bg-gray-100 text-gray-600 hover:text-gray-800 cursor-pointer",
+  outline: "border border-gray-300 hover:bg-gray-50 text-gray-700 cursor-pointer",
 };
 
 export function Button({
@@ -320,12 +303,12 @@ export function Button({
   size?: "sm" | "md" | "lg";
   loading?: boolean;
 }) {
-  const sizeMap = { sm: "px-3 py-1.5 text-xs", md: "px-4 py-2 text-sm", lg: "px-5 py-2.5 text-sm" };
+  const sizeMap = { sm: "px-3 py-1.5 text-xs", md: "px-4 py-2 text-xs", lg: "px-5 py-2.5 text-xs" };
   return (
     <button
       className={cn(
         "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all",
-        "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1",
+        "focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:ring-offset-1",
         "disabled:opacity-60 disabled:cursor-not-allowed",
         btnVariants[variant],
         sizeMap[size],
@@ -357,11 +340,11 @@ export function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
-        <Info className="w-7 h-7 text-slate-400" />
+      <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+        <Info className="w-7 h-7 text-gray-400" />
       </div>
-      <h3 className="text-base font-semibold text-slate-700">{title}</h3>
-      {description && <p className="text-sm text-slate-400 mt-1 max-w-xs">{description}</p>}
+      <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
+      {description && <p className="text-xs text-gray-400 mt-1 max-w-xs">{description}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   );
@@ -369,22 +352,22 @@ export function EmptyState({
 
 // ─── LOADING SKELETON ─────────────────────────────────────
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("bg-slate-200 animate-pulse rounded", className)} />;
+  return <div className={cn("bg-gray-200 animate-pulse rounded", className)} />;
 }
 
 // ─── ALERT ────────────────────────────────────────────────
 type AlertType = "info" | "success" | "warning" | "error";
 const alertConfig: Record<AlertType, { icon: ReactNode; classes: string }> = {
-  info: { icon: <Info className="w-4 h-4" />, classes: "bg-blue-50 border-blue-200 text-blue-800" },
-  success: { icon: <CheckCircle className="w-4 h-4" />, classes: "bg-emerald-50 border-emerald-200 text-emerald-800" },
-  warning: { icon: <AlertTriangle className="w-4 h-4" />, classes: "bg-amber-50 border-amber-200 text-amber-800" },
+  info: { icon: <Info className="w-4 h-4" />, classes: "bg-teal-50 border-teal-200 text-teal-800" },
+  success: { icon: <CheckCircle className="w-4 h-4" />, classes: "bg-teal-50 border-teal-200 text-teal-800" },
+  warning: { icon: <AlertTriangle className="w-4 h-4" />, classes: "bg-teal-50 border-teal-200 text-teal-800" },
   error: { icon: <AlertCircle className="w-4 h-4" />, classes: "bg-red-50 border-red-200 text-red-800" },
 };
 
 export function Alert({ type = "info", children }: { type?: AlertType; children: ReactNode }) {
   const c = alertConfig[type];
   return (
-    <div className={cn("flex items-start gap-2 p-3 rounded-lg border text-sm", c.classes)}>
+    <div className={cn("flex items-start gap-2 p-3 rounded-lg border text-xs", c.classes)}>
       <span className="shrink-0 mt-0.5">{c.icon}</span>
       <span>{children}</span>
     </div>
@@ -396,21 +379,20 @@ interface Toast { id: string; type: AlertType; message: string }
 
 const ToastContext = createContext<{ toast: (type: AlertType, msg: string) => void } | null>(null);
 
-export function Toaster() {
+export function Toaster({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const remove = (id: string) => setToasts((t) => t.filter((x) => x.id !== id));
 
+  const addToast = (type: AlertType, message: string) => {
+    const id = Math.random().toString(36).slice(2);
+    setToasts((t) => [...t, { id, type, message }]);
+    setTimeout(() => remove(id), 4000);
+  };
+
   return (
-    <ToastContext.Provider
-      value={{
-        toast: (type, message) => {
-          const id = Math.random().toString(36).slice(2);
-          setToasts((t) => [...t, { id, type, message }]);
-          setTimeout(() => remove(id), 4000);
-        },
-      }}
-    >
+    <ToastContext.Provider value={{ toast: addToast }}>
+      {children}
       <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 max-w-sm w-full">
         {toasts.map((t) => {
           const c = alertConfig[t.type];
@@ -418,13 +400,13 @@ export function Toaster() {
             <div
               key={t.id}
               className={cn(
-                "flex items-start gap-2 p-3 rounded-xl border shadow-lg text-sm animate-in slide-in-from-right",
+                "flex items-start gap-2 p-3 rounded-xl border text-xs",
                 c.classes
               )}
             >
               <span className="shrink-0">{c.icon}</span>
               <span className="flex-1">{t.message}</span>
-              <button onClick={() => remove(t.id)} className="shrink-0 opacity-60 hover:opacity-100">
+              <button onClick={() => remove(t.id)} className="shrink-0 opacity-60 hover:opacity-100 cursor-pointer">
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -456,17 +438,17 @@ export function Pagination({
       <button
         disabled={page <= 1}
         onClick={() => onPage(page - 1)}
-        className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+        className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 cursor-pointer"
       >
         Previous
       </button>
-      <span className="text-xs text-slate-500 px-2">
+      <span className="text-xs text-gray-500 px-2">
         {page} / {totalPages}
       </span>
       <button
         disabled={page >= totalPages}
         onClick={() => onPage(page + 1)}
-        className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+        className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 cursor-pointer"
       >
         Next
       </button>

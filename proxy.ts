@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-const PUBLIC_ROUTES = ["/login", "/forgot-password", "/reset-password"];
+const PUBLIC_ROUTES = ["/login", "/forgot-password", "/reset-password", "/clinic-bg.jpg"];
 const PUBLIC_API_ROUTES = ["/api/auth"];
 
 async function getSessionToken(req: NextRequest) {
@@ -120,5 +120,5 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|public/).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|public/|.*\\.jpg|.*\\.png|.*\\.svg).*)"],
 };

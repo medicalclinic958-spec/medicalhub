@@ -13,20 +13,35 @@ export const authOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error("Email and password are required");
+        }
+
         await connectDB();
         const user = await User.findOne({ email: credentials.email })
           .select("+password")
           .populate({ path: "role", populate: { path: "permissions" } })
           .lean();
-        if (!user) return null;
-        if (user.status === "inactive" || user.status === "suspended") return null;
+
+        if (!user) {
+          throw new Error("No account found with this email");
+        }
+
+        if (user.status === "inactive" || user.status === "suspended") {
+          throw new Error("Your account is not active. Contact admin.");
+        }
+
         const isValid = await bcrypt.compare(credentials.password, user.password as string);
-        if (!isValid) return null;
+
+        if (!isValid) {
+          throw new Error("Invalid password");
+        }
+
         const role = user.role as Record<string, unknown>;
         const permissions = Array.isArray(role?.permissions)
           ? (role.permissions as Record<string, string>[]).map(p => `${p.module}:${p.action}`)
           : [];
+
         return {
           id: user._id.toString(),
           email: user.email,

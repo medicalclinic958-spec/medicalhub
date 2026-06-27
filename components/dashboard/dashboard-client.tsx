@@ -29,8 +29,8 @@ interface DashboardStats {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  scheduled: "#3b82f6",
-  checked_in: "#8b5cf6",
+  scheduled: "#0d9488",
+  checked_in: "#14b8a6",
   in_consultation: "#f59e0b",
   completed: "#10b981",
   cancelled: "#ef4444",
@@ -54,18 +54,18 @@ export function DashboardClient({ session }: { session: Session }) {
   );
 
   const quickActions = [
-    { label: "New Patient", href: "/patients?action=new", perm: "patients:create", color: "bg-blue-600 hover:bg-blue-500" },
-    { label: "Book Appointment", href: "/appointments?action=new", perm: "appointments:create", color: "bg-purple-600 hover:bg-purple-500" },
-    { label: "New Invoice", href: "/billing?action=new", perm: "billing:create", color: "bg-emerald-600 hover:bg-emerald-500" },
-    { label: "Lab Test", href: "/lab?action=new", perm: "lab:create", color: "bg-amber-600 hover:bg-amber-500" },
+    { label: "New Patient", href: "/patients?action=new", perm: "patients:create", icon: Users },
+    { label: "Book Appointment", href: "/appointments?action=new", perm: "appointments:create", icon: Calendar },
+    { label: "New Invoice", href: "/billing?action=new", perm: "billing:create", icon: Receipt },
+    { label: "Lab Test", href: "/lab?action=new", perm: "lab:create", icon: FlaskConical },
   ].filter((a) => isSA || perms.includes(a.perm));
 
   return (
     <div className="space-y-6">
       {/* Page header */}
       <div>
-        <h1 className="text-xl font-bold text-slate-800">Dashboard</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-xl font-bold text-gray-800">Dashboard</h1>
+        <p className="text-xs text-gray-500 mt-1">
           Welcome back, {session.user.fullName}. Here&apos;s what&apos;s happening today.
         </p>
       </div>
@@ -77,7 +77,6 @@ export function DashboardClient({ session }: { session: Session }) {
             title="Total Patients"
             value={stats?.totalPatients ?? null}
             icon={Users}
-            color="blue"
             loading={isLoading}
           />
         )}
@@ -86,7 +85,6 @@ export function DashboardClient({ session }: { session: Session }) {
             title="Today's Appointments"
             value={stats?.todayAppointments ?? null}
             icon={Calendar}
-            color="purple"
             loading={isLoading}
           />
         )}
@@ -95,7 +93,6 @@ export function DashboardClient({ session }: { session: Session }) {
             title="Active Doctors"
             value={stats?.totalDoctors ?? null}
             icon={Stethoscope}
-            color="emerald"
             loading={isLoading}
           />
         )}
@@ -104,7 +101,6 @@ export function DashboardClient({ session }: { session: Session }) {
             title="Monthly Revenue"
             value={stats ? formatCurrency(stats.monthlyRevenue) : null}
             icon={DollarSign}
-            color="amber"
             loading={isLoading}
           />
         )}
@@ -113,7 +109,6 @@ export function DashboardClient({ session }: { session: Session }) {
             title="Pending Bills"
             value={stats?.pendingBills ?? null}
             icon={Receipt}
-            color="red"
             loading={isLoading}
           />
         )}
@@ -122,7 +117,6 @@ export function DashboardClient({ session }: { session: Session }) {
             title="Lab Tests Pending"
             value={stats?.labPending ?? null}
             icon={FlaskConical}
-            color="purple"
             loading={isLoading}
           />
         )}
@@ -131,7 +125,6 @@ export function DashboardClient({ session }: { session: Session }) {
             title="Active Staff"
             value={stats?.totalStaff ?? null}
             icon={Users}
-            color="blue"
             loading={isLoading}
           />
         )}
@@ -140,15 +133,19 @@ export function DashboardClient({ session }: { session: Session }) {
       {/* Quick actions */}
       {quickActions.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {quickActions.map((a) => (
-            <Link
-              key={a.href}
-              href={a.href}
-              className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-all ${a.color}`}
-            >
-              + {a.label}
-            </Link>
-          ))}
+          {quickActions.map((a) => {
+            const Icon = a.icon;
+            return (
+              <Link
+                key={a.href}
+                href={a.href}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium text-white bg-teal-600 hover:bg-teal-700 transition-all"
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {a.label}
+              </Link>
+            );
+          })}
         </div>
       )}
 
@@ -158,8 +155,8 @@ export function DashboardClient({ session }: { session: Session }) {
           <Card className="xl:col-span-2">
             <CardHeader>
               <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-slate-500" />
-                <h3 className="text-sm font-semibold text-slate-700">Revenue — Last 7 Days</h3>
+                <TrendingUp className="w-4 h-4 text-gray-500" />
+                <h3 className="text-xs font-semibold text-gray-700">Revenue — Last 7 Days</h3>
               </div>
             </CardHeader>
             <CardBody>
@@ -170,18 +167,18 @@ export function DashboardClient({ session }: { session: Session }) {
                   <AreaChart data={stats?.revenueChart || []}>
                     <defs>
                       <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
-                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                        <stop offset="5%" stopColor="#0d9488" stopOpacity={0.15} />
+                        <stop offset="95%" stopColor="#0d9488" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#cbd5e1" />
-                    <YAxis tick={{ fontSize: 11 }} stroke="#cbd5e1" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#d1d5db" />
+                    <YAxis tick={{ fontSize: 11 }} stroke="#d1d5db" />
                     <Tooltip
-                      formatter={(v: number) => formatCurrency(v)}
-                      contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12 }}
+                      formatter={(v: any) => formatCurrency(v)}
+                      contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 12 }}
                     />
-                    <Area type="monotone" dataKey="revenue" stroke="#3b82f6" fill="url(#revGrad)" strokeWidth={2} name="Revenue" />
+                    <Area type="monotone" dataKey="revenue" stroke="#0d9488" fill="url(#revGrad)" strokeWidth={2} name="Revenue" />
                   </AreaChart>
                 </ResponsiveContainer>
               )}
@@ -194,8 +191,8 @@ export function DashboardClient({ session }: { session: Session }) {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-slate-500" />
-                <h3 className="text-sm font-semibold text-slate-700">Appointments by Status</h3>
+                <Calendar className="w-4 h-4 text-gray-500" />
+                <h3 className="text-xs font-semibold text-gray-700">Appointments by Status</h3>
               </div>
             </CardHeader>
             <CardBody>
@@ -221,7 +218,7 @@ export function DashboardClient({ session }: { session: Session }) {
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-48 flex items-center justify-center text-slate-400 text-sm">
+                <div className="h-48 flex items-center justify-center text-xs text-gray-400">
                   No appointment data
                 </div>
               )}
@@ -236,11 +233,11 @@ export function DashboardClient({ session }: { session: Session }) {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-slate-500" />
-                <h3 className="text-sm font-semibold text-slate-700">Recent Activity</h3>
+                <Clock className="w-4 h-4 text-gray-500" />
+                <h3 className="text-xs font-semibold text-gray-700">Recent Activity</h3>
               </div>
-              <Link href="/audit-logs" className="text-xs text-blue-600 hover:text-blue-500">
-                View all
+              <Link href="/audit-logs" className="text-xs text-teal-600 hover:text-teal-700 transition-colors">
+                View all →
               </Link>
             </div>
           </CardHeader>
@@ -250,31 +247,31 @@ export function DashboardClient({ session }: { session: Session }) {
                 {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
               </div>
             ) : (stats?.recentActivities?.length ?? 0) > 0 ? (
-              <ul className="divide-y divide-slate-100">
+              <ul className="divide-y divide-gray-100">
                 {stats!.recentActivities.map((activity, i) => (
                   <li key={i} className="flex items-center gap-3 px-6 py-3">
-                    <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                      <Clock className="w-3.5 h-3.5 text-slate-400" />
+                    <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                      <Clock className="w-3.5 h-3.5 text-gray-400" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-slate-700 truncate">
+                      <p className="text-xs text-gray-700 truncate">
                         {activity.description as string}
                       </p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <StatusBadge status={(activity.status as string) || "success"} />
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-gray-400">
                           {formatDate(new Date(activity.createdAt as string))}
                         </span>
                       </div>
                     </div>
-                    <span className="text-xs text-slate-400 capitalize shrink-0">
+                    <span className="text-xs text-gray-400 capitalize shrink-0">
                       {(activity.module as string)?.replace(/_/g, " ")}
                     </span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <div className="py-10 text-center text-sm text-slate-400">No recent activity</div>
+              <div className="py-10 text-center text-xs text-gray-400">No recent activity</div>
             )}
           </CardBody>
         </Card>
