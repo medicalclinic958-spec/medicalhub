@@ -62,10 +62,17 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
 
+    // Clean empty string fields to prevent ObjectId cast errors
+    const cleanData = { ...parsed.data };
+    if (cleanData.patient === "" || cleanData.patient === null) delete cleanData.patient;
+    if (cleanData.supplier === "" || cleanData.supplier === null) delete cleanData.supplier;
+    if (cleanData.doctor === "" || cleanData.doctor === null) delete cleanData.doctor;
+    if (cleanData.appointment === "" || cleanData.appointment === null) delete cleanData.appointment;
+
     const invoiceData = {
-        ...parsed.data,
+        ...cleanData,
         createdBy: session.user.id,
-        balanceDue: parsed.data.total - (parsed.data.paidAmount || 0),
+        balanceDue: cleanData.total - (cleanData.paidAmount || 0),
     };
 
     const invoice = await Invoice.create(invoiceData);
@@ -98,7 +105,6 @@ export async function POST(req: NextRequest) {
     });
 
     if (invoice.invoiceType === "pharmacy_purchase") {
-        // Notify admin about new purchase
         const { User } = await import("@/models/user.model");
         const adminUsers = await User.find({
             $or: [
