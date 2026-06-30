@@ -32,6 +32,6 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         { new: true }
     ).lean();
 
-    await auditLog({ ...});
+    // await auditLog({ ...});
     return apiSuccess(patient, "Patient marked as deceased");
 }

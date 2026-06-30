@@ -25,6 +25,6 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     if (!patient) return apiError("Patient not found", 404);
 
-    await auditLog({ ...});
+    // await auditLog({ ...});
     return apiSuccess(patient, "Patient archived");
 }
