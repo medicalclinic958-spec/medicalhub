@@ -2,7 +2,7 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth/auth.config";
 import connectDB from "@/lib/db/mongoose";
-import { Invoice } from "@/models/operations.model";
+import { Invoice, Medicine } from "@/models/operations.model";
 import { apiSuccess, apiError, getIpFromHeaders } from "@/lib/utils";
 import { updateInvoiceSchema } from "@/lib/validations";
 import { auditLog, hasPermission } from "@/lib/auth/audit";
@@ -20,7 +20,6 @@ export async function GET(_req: NextRequest, { params }: Params) {
     const invoice = await Invoice.findById(id)
         .populate("patient", "firstName lastName patientId")
         .populate("doctor", "firstName lastName")
-        .populate("supplier", "name phone email")
         .populate("appointment", "appointmentId scheduledDate scheduledTime consultationFee")
         .populate("items.medicine", "name genericName unit")
         .populate("createdBy", "firstName lastName")
@@ -95,7 +94,6 @@ export async function PUT(req: NextRequest, { params }: Params) {
     const updated = await Invoice.findByIdAndUpdate(id, update, { new: true })
         .populate("patient", "firstName lastName patientId")
         .populate("doctor", "firstName lastName")
-        .populate("supplier", "name")
         .populate("items.medicine", "name genericName unit")
         .populate("createdBy", "firstName lastName")
         .populate("payments.receivedBy", "firstName lastName")
@@ -133,9 +131,16 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     const invoice = await Invoice.findById(id);
     if (!invoice) return apiError("Invoice not found", 404);
 
-    // Only allow deleting draft or cancelled invoices
-    if (!["draft", "cancelled"].includes(invoice.status)) {
-        return apiError(`Cannot delete — invoice is ${invoice.status}`, 409);
+    // RESTORE STOCK FOR MEDICINE ITEMS BEFORE DELETING
+    if (invoice.items && invoice.items.length > 0) {
+        for (const item of invoice.items) {
+            // Only restore stock for medicine items
+            if (item.medicine && item.category === "medicine") {
+                await Medicine.findByIdAndUpdate(item.medicine, {
+                    $inc: { currentStock: item.quantity } // Add back the quantity
+                });
+            }
+        }
     }
 
     const invoiceNumber = invoice.invoiceNumber;
@@ -145,11 +150,11 @@ export async function DELETE(req: NextRequest, { params }: Params) {
         userId: session.user.id,
         action: "delete",
         module: "billing",
-        description: `Deleted invoice: ${invoiceNumber}`,
+        description: `Deleted invoice: ${invoiceNumber} (stock restored for medicine items)`,
         resourceId: id,
         resourceType: "Invoice",
         ipAddress: getIpFromHeaders(req.headers),
     });
 
-    return apiSuccess(null, "Invoice deleted", 200);
+    return apiSuccess(null, "Invoice deleted successfully with stock restored", 200);
 }

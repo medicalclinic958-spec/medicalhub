@@ -65,6 +65,7 @@ export interface IMedicine extends Document {
   storageCondition?: string;
   storageLocation?: string;
   isActive: boolean;
+  barcode?: string;
 }
 
 const MedicineSchema = new Schema<IMedicine>(
@@ -84,6 +85,7 @@ const MedicineSchema = new Schema<IMedicine>(
     storageCondition: { type: String, trim: true },
     storageLocation: { type: String, trim: true },
     isActive: { type: Boolean, default: true },
+    barcode: { type: String, trim: true, unique: true, sparse: true },
   },
   { timestamps: true }
 );
@@ -202,10 +204,10 @@ LabTestSchema.pre("save", async function () {
 // ─── INVOICE MODEL ───────────────────────────────────────
 export interface IInvoice extends Document {
   invoiceNumber: string;
-  invoiceType: "opd" | "pharmacy_sale" | "pharmacy_purchase" | "lab" | "procedure" | "other";
+  invoiceType: "opd" | "pharmacy_sale" | "lab" | "procedure" | "other";
   patient?: mongoose.Types.ObjectId;
+  patientName?: string;
   appointment?: mongoose.Types.ObjectId;
-  supplier?: mongoose.Types.ObjectId;
   doctor?: mongoose.Types.ObjectId;
   items: {
     description: string;
@@ -243,13 +245,13 @@ const InvoiceSchema = new Schema<IInvoice>(
     invoiceNumber: { type: String, unique: true },
     invoiceType: {
       type: String,
-      enum: ["opd", "pharmacy_sale", "pharmacy_purchase", "lab", "procedure", "other"],
+      enum: ["opd", "pharmacy_sale", "lab", "procedure", "other"],
       required: true,
       index: true,
     },
     patient: { type: Schema.Types.ObjectId, ref: "Patient", index: true },
+    patientName: { type: String },
     appointment: { type: Schema.Types.ObjectId, ref: "Appointment" },
-    supplier: { type: Schema.Types.ObjectId, ref: "Supplier" },
     doctor: { type: Schema.Types.ObjectId, ref: "User" },
     items: [
       {
@@ -307,7 +309,6 @@ InvoiceSchema.pre("save", async function () {
     const prefixes: Record<string, string> = {
       opd: "INV-OPD",
       pharmacy_sale: "INV-PHARM-SALE",
-      pharmacy_purchase: "INV-PHARM-PURCH",
       lab: "INV-LAB",
       procedure: "INV-PROC",
       other: "INV-OTHER",
@@ -327,7 +328,10 @@ export interface IExpense extends Document {
   amount: number;
   paymentMethod: string;
   vendor?: string;
-  receiptUrl?: string;
+  receipts?: Array<{
+    url: string;
+    publicId: string;
+  }>;
   date: Date;
   description?: string;
   status: "pending" | "approved" | "rejected";
@@ -351,7 +355,11 @@ const ExpenseSchema = new Schema<IExpense>(
       required: true,
     },
     vendor: String,
-    receiptUrl: String,
+    receipts: [{
+      url: String,
+      publicId: String,
+      _id: false
+    }],
     date: { type: Date, required: true, default: Date.now, index: true },
     description: String,
     status: {

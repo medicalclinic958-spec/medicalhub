@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import axios from "axios";
 import Link from "next/link";
-import { ArrowLeft, Printer, Plus, CheckCircle, Building2, User } from "lucide-react";
+import { ArrowLeft, Printer, Plus, CheckCircle, Building2, User, Trash2 } from "lucide-react";
 import {
   Card, CardBody, Table, Th, Td, StatusBadge,
   Button, Modal, FormField, Input, Select, Alert, Badge, Skeleton,
@@ -15,6 +15,8 @@ import { addPaymentSchema } from "@/lib/validations";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useSession } from "next-auth/react";
 import { z } from "zod";
+import { useRouter } from "next/navigation";
+
 
 type PaymentInput = z.infer<typeof addPaymentSchema>;
 
@@ -23,8 +25,8 @@ interface Invoice {
   invoiceNumber: string;
   invoiceType: string;
   patient?: { firstName: string; lastName: string; patientId: string; phone: string; email?: string; address?: { city?: string; country?: string } };
+  patientName?: string;
   doctor?: { firstName: string; lastName: string };
-  supplier?: { name: string; phone: string; email?: string };
   items: { description: string; category: string; quantity: number; unitPrice: number; total: number; medicine?: { name: string } }[];
   subtotal: number;
   discount: number;
@@ -47,10 +49,15 @@ export function InvoiceDetailClient({ invoiceId }: { invoiceId: string }) {
   const qc = useQueryClient();
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentError, setPaymentError] = useState("");
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  const router = useRouter();
 
   const perms = session?.user.permissions || [];
   const isSA = session?.user.isSuperAdmin;
   const canUpdate = isSA || perms.includes("billing:update");
+  const canDelete = isSA || perms.includes("billing:delete");
 
   const { data, isLoading } = useQuery({
     queryKey: ["invoice", invoiceId],
@@ -84,6 +91,17 @@ export function InvoiceDetailClient({ invoiceId }: { invoiceId: string }) {
     onError: (e: unknown) => setPaymentError((e as { response?: { data?: { error?: string } } })?.response?.data?.error || "Payment failed"),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: () => axios.delete(`/api/invoice/${invoiceId}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["invoices"] });
+      router.push("/billing");
+    },
+    onError: (e: unknown) => {
+      setDeleteError((e as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed to delete");
+    },
+  });
+
   const handlePrint = () => {
     const printContent = document.getElementById("printable-invoice");
     const originalContent = document.body.innerHTML;
@@ -105,7 +123,6 @@ export function InvoiceDetailClient({ invoiceId }: { invoiceId: string }) {
     const labels: Record<string, string> = {
       opd: "OPD/Consultation",
       pharmacy_sale: "Pharmacy Sale",
-      pharmacy_purchase: "Pharmacy Purchase",
       lab: "Lab Test",
       procedure: "Procedure",
       other: "Other",
@@ -127,6 +144,11 @@ export function InvoiceDetailClient({ invoiceId }: { invoiceId: string }) {
           <Button variant="secondary" size="sm" onClick={handlePrint}>
             <Printer className="w-3.5 h-3.5" /> Print
           </Button>
+          {canDelete && (
+            <Button variant="danger" size="sm" onClick={() => setDeleteConfirmOpen(true)}>
+              <Trash2 className="w-3.5 h-3.5" /> Delete
+            </Button>
+          )}
         </div>
       </div>
 
@@ -137,9 +159,11 @@ export function InvoiceDetailClient({ invoiceId }: { invoiceId: string }) {
           <div className="flex items-start justify-between pb-5 border-b border-slate-200">
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <h1 className="text-xl font-bold text-slate-800">{inv.invoiceNumber}</h1>
-                <StatusBadge status={inv.status} />
-                <Badge variant="outline">{typeLabel(inv.invoiceType)}</Badge>
+                <h1 className="text-xs font-bold text-slate-800">{inv.invoiceNumber}</h1>
+                <span className="no-print">
+                  <StatusBadge status={inv.status} />
+                  <Badge variant="outline">{typeLabel(inv.invoiceType)}</Badge>
+                </span>
               </div>
               <p className="text-sm text-slate-400">Issued: {formatDate(inv.createdAt)}</p>
               {inv.dueDate && <p className="text-sm text-slate-400">Due: {formatDate(inv.dueDate)}</p>}
@@ -154,20 +178,19 @@ export function InvoiceDetailClient({ invoiceId }: { invoiceId: string }) {
           {/* Bill To / Supplier */}
           <div className="grid grid-cols-2 gap-6 py-5 border-b border-slate-200">
             <div>
-              {inv.invoiceType === "pharmacy_purchase" && inv.supplier ? (
-                <>
-                  <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Supplier</p>
-                  <p className="font-semibold text-slate-800 flex items-center gap-1"><Building2 className="w-4 h-4" /> {inv.supplier.name}</p>
-                  <p className="text-sm text-slate-500">{inv.supplier.phone}</p>
-                  {inv.supplier.email && <p className="text-sm text-slate-500">{inv.supplier.email}</p>}
-                </>
-              ) : inv.patient ? (
+              {inv.patient ? (
                 <>
                   <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Bill To</p>
                   <p className="font-semibold text-slate-800">{inv.patient.firstName} {inv.patient.lastName}</p>
                   <p className="text-sm text-slate-500">{inv.patient.patientId}</p>
                   <p className="text-sm text-slate-500">{inv.patient.phone}</p>
                   {inv.patient.email && <p className="text-sm text-slate-500">{inv.patient.email}</p>}
+                </>
+              ) : inv.patientName ? (
+                <>
+                  <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Bill To</p>
+                  <p className="font-semibold text-slate-800 flex items-center gap-1"><User className="w-4 h-4" /> {inv.patientName}</p>
+                  <p className="text-sm text-slate-400">Walk-in patient</p>
                 </>
               ) : (
                 <>
@@ -244,7 +267,6 @@ export function InvoiceDetailClient({ invoiceId }: { invoiceId: string }) {
                       {p.transactionRef && <span className="text-slate-400 font-mono text-xs">Ref: {p.transactionRef}</span>}
                     </div>
                     <div className="flex items-center gap-3 text-slate-400">
-                      <span>{p.receivedBy?.firstName} {p.receivedBy?.lastName}</span>
                       <span>{formatDate(p.paidAt)}</span>
                     </div>
                   </div>
@@ -294,6 +316,28 @@ export function InvoiceDetailClient({ invoiceId }: { invoiceId: string }) {
             <Button type="submit" loading={paymentMutation.isPending}>Record Payment</Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal open={deleteConfirmOpen} onClose={() => { setDeleteConfirmOpen(false); setDeleteError(""); }} title="Delete Invoice" size="sm">
+        <div className="space-y-4 mt-2">
+          {deleteError && <Alert type="error">{deleteError}</Alert>}
+          <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-100">
+            <Trash2 className="w-5 h-5 text-red-500 shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-red-800">Delete permanently?</p>
+              <p className="text-sm text-red-600">
+                This will permanently delete invoice <strong>{inv.invoiceNumber}</strong>. This action cannot be undone.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <Button variant="secondary" onClick={() => { setDeleteConfirmOpen(false); setDeleteError(""); }}>Cancel</Button>
+            <Button variant="danger" loading={deleteMutation.isPending} onClick={() => deleteMutation.mutate()}>
+              Delete Permanently
+            </Button>
+          </div>
+        </div>
       </Modal>
 
       {/* Print-only styles */}

@@ -244,10 +244,9 @@ export const createLabTestSchema = z.object({
 
 // ─── BILLING SCHEMAS ──────────────────────────────────────
 export const createInvoiceSchema = z.object({
-  invoiceType: z.enum(["opd", "pharmacy_sale", "pharmacy_purchase", "lab", "procedure", "other"]),
+  invoiceType: z.enum(["opd", "pharmacy_sale", "lab", "procedure", "other"]),
   patient: z.string().optional(),
   appointment: z.string().optional(),
-  supplier: z.string().optional(),
   doctor: z.string().optional(),
   items: z.array(z.object({
     description: z.string().min(1),
@@ -268,6 +267,7 @@ export const createInvoiceSchema = z.object({
   status: z.enum(["draft", "pending", "paid", "partial", "overdue", "cancelled", "refunded"]).default("pending"),
   dueDate: z.string().optional(),
   notes: z.string().optional(),
+  patientName: z.string().optional(),
 });
 
 export const updateInvoiceSchema = z.object({
@@ -341,6 +341,8 @@ export const createMedicineSchema = z.object({
   supplier: z.string().optional(),
   storageCondition: z.string().optional(),
   storageLocation: z.string().optional(),
+  barcode: z.string().trim().optional(),
+
 });
 // Add to lib/validations.ts
 export const updateMedicineSchema = z.object({
@@ -368,7 +370,6 @@ export const createExpenseSchema = z.object({
   amount: z.number().min(0.01),
   paymentMethod: z.enum(["cash", "card", "bank_transfer", "mobile_wallet", "insurance"]),
   vendor: z.string().optional(),
-  receiptUrl: z.string().optional(),
   date: z.string().min(1),
   description: z.string().optional(),
   status: z.enum(["pending", "approved", "rejected"]).optional(),
@@ -380,7 +381,6 @@ export const updateExpenseSchema = z.object({
   amount: z.number().min(0.01).optional(),
   paymentMethod: z.enum(["cash", "card", "bank_transfer", "mobile_wallet", "insurance"]).optional(),
   vendor: z.string().optional(),
-  receiptUrl: z.string().optional(),
   date: z.string().optional(),
   description: z.string().optional(),
   status: z.enum(["pending", "approved", "rejected"]).optional(),

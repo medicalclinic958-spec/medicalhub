@@ -90,7 +90,7 @@ export async function proxy(req: NextRequest) {
         "/api/lab": "lab:view",
         "/api/labcatalog": "labcatalog:view",
         "/api/pharmacy": "pharmacy:view",
-        "/api/supplier": "suppliers:view",
+        "/api/supplier": "pharmacy:view",
         "/api/inventory": "inventory:view",
         "/api/staff": "staff:view",
         "/api/users": "users:view",

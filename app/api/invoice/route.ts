@@ -3,11 +3,10 @@ import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth/auth.config";
 import connectDB from "@/lib/db/mongoose";
 import { Invoice, Medicine } from "@/models/operations.model";
+import { Patient } from "@/models/clinical.model";
 import { apiSuccess, apiError, getPaginationParams, buildPagination, getIpFromHeaders } from "@/lib/utils";
 import { createInvoiceSchema } from "@/lib/validations";
 import { auditLog, hasPermission } from "@/lib/auth/audit";
-import { NotificationService } from "@/services/notification.service";
-import { formatCurrency, formatDate } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
     const session = await auth();
@@ -27,7 +26,20 @@ export async function GET(req: NextRequest) {
     if (invoiceType) filter.invoiceType = invoiceType;
     if (status) filter.status = status;
     if (patientId) filter.patient = patientId;
-    if (search) filter.$or = [{ invoiceNumber: { $regex: search, $options: "i" } }];
+    if (search) {
+        const patientIds = await Patient.find({
+            $or: [
+                { firstName: { $regex: search, $options: "i" } },
+                { lastName: { $regex: search, $options: "i" } }
+            ]
+        }).distinct("_id");
+
+        filter.$or = [
+            { invoiceNumber: { $regex: search, $options: "i" } },
+            { patientName: { $regex: search, $options: "i" } },
+            { patient: { $in: patientIds } }
+        ];
+    }
     if (dateFrom || dateTo) {
         filter.createdAt = {};
         if (dateFrom) (filter.createdAt as Record<string, unknown>).$gte = new Date(dateFrom);
@@ -41,7 +53,6 @@ export async function GET(req: NextRequest) {
             .sort({ createdAt: -1 })
             .populate("patient", "firstName lastName patientId")
             .populate("doctor", "firstName lastName")
-            .populate("supplier", "name")
             .populate("appointment", "appointmentId")
             .populate("createdBy", "firstName lastName")
             .lean(),
@@ -65,7 +76,6 @@ export async function POST(req: NextRequest) {
     // Clean empty string fields to prevent ObjectId cast errors
     const cleanData = { ...parsed.data };
     if (cleanData.patient === "" || cleanData.patient === null) delete cleanData.patient;
-    if (cleanData.supplier === "" || cleanData.supplier === null) delete cleanData.supplier;
     if (cleanData.doctor === "" || cleanData.doctor === null) delete cleanData.doctor;
     if (cleanData.appointment === "" || cleanData.appointment === null) delete cleanData.appointment;
 
@@ -90,7 +100,6 @@ export async function POST(req: NextRequest) {
     const populatedInvoice = await Invoice.findById(invoice._id)
         .populate("patient", "firstName lastName patientId")
         .populate("doctor", "firstName lastName")
-        .populate("supplier", "name")
         .populate("createdBy", "firstName lastName")
         .lean();
 
@@ -103,28 +112,6 @@ export async function POST(req: NextRequest) {
         resourceType: "Invoice",
         ipAddress: getIpFromHeaders(req.headers),
     });
-
-    if (invoice.invoiceType === "pharmacy_purchase") {
-        const { User } = await import("@/models/user.model");
-        const adminUsers = await User.find({
-            $or: [
-                { isSuperAdmin: true },
-                { permissions: { $in: ["billing:view"] } }
-            ]
-        }).select("_id").lean();
-
-        const userIds = adminUsers.map(u => u._id.toString());
-        if (userIds.length > 0) {
-            await NotificationService.createBulk(userIds, {
-                type: "pending_payment",
-                title: "New Purchase Invoice",
-                message: `Purchase invoice ${invoice.invoiceNumber} created for ${formatCurrency(invoice.total)}`,
-                priority: "medium",
-                actionUrl: `/billing/${invoice._id}`,
-                metadata: { invoiceId: invoice._id.toString() },
-            });
-        }
-    }
 
     return apiSuccess(populatedInvoice, "Invoice created", 201);
 }

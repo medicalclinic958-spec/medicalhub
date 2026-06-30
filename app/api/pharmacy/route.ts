@@ -36,7 +36,11 @@ export async function POST(req: NextRequest) {
   const parsed = createMedicineSchema.safeParse(body);
   if (!parsed.success) return apiError(parsed.error.issues[0].message, 422);
   await connectDB();
-  const medicine = await Medicine.create(parsed.data);
+
+  const cleanData = { ...parsed.data };
+  if (cleanData.supplier === "" || cleanData.supplier === null) delete cleanData.supplier;
+  const medicine = await Medicine.create(cleanData);
+
   await auditLog({ userId: session.user.id, action: "create", module: "pharmacy", description: `Added medicine: ${medicine.name}`, resourceId: medicine._id.toString(), ipAddress: getIpFromHeaders(req.headers) });
 
   if (medicine.currentStock <= medicine.minStockLevel) {

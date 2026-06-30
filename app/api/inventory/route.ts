@@ -54,7 +54,11 @@ export async function POST(req: NextRequest) {
   const parsed = createInventorySchema.safeParse(body);
   if (!parsed.success) return apiError(parsed.error.issues[0].message, 422);
   await connectDB();
-  const item = await InventoryItem.create(parsed.data);
+
+  const cleanData = { ...parsed.data };
+  if (cleanData.supplier === "" || cleanData.supplier === null) delete cleanData.supplier;
+
+  const item = await InventoryItem.create(cleanData);
   await auditLog({ userId: session.user.id, action: "create", module: "inventory", description: `Added inventory: ${item.name}`, resourceId: item._id.toString(), ipAddress: getIpFromHeaders(req.headers) });
   return apiSuccess(item, "Inventory item added", 201);
 }

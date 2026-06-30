@@ -1,16 +1,14 @@
-// components/expenses/expense-detail-client.tsx
 "use client";
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-import { ArrowLeft, TrendingDown, Pencil, Trash2, CheckCircle, XCircle, Clock } from "lucide-react";
+import { ArrowLeft, TrendingDown, Pencil, Trash2, CheckCircle, XCircle, Clock, Download, Image as ImageIcon, File, X } from "lucide-react";
 import { Card, CardBody, Badge, Button, Modal, Alert, StatusBadge } from "@/components/ui";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useSession } from "next-auth/react";
 import { EditExpenseModal } from "./edit-expense-modal";
-
 
 interface ExpenseDetail {
     _id: string;
@@ -19,7 +17,7 @@ interface ExpenseDetail {
     amount: number;
     paymentMethod: string;
     vendor?: string;
-    receiptUrl?: string;
+    receipts?: Array<{ url: string; publicId: string }>;
     date: string;
     description?: string;
     status: string;
@@ -71,7 +69,7 @@ export function ExpenseDetailClient({ expenseId }: { expenseId: string }) {
         mutationFn: () => axios.delete(`/api/expenses/${expenseId}`),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ["expenses"] });
-            router.push("/dashboard/expenses");
+            router.push("/expenses");
         },
         onError: (e: unknown) => {
             setDeleteError((e as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed to delete");
@@ -88,6 +86,44 @@ export function ExpenseDetailClient({ expenseId }: { expenseId: string }) {
         },
         onError: (e: unknown) => setEditError((e as any)?.response?.data?.error || "Failed"),
     });
+
+    const handleDownload = (url: string, filename?: string) => {
+        if (!filename) {
+            const parts = url.split("/");
+            filename = parts[parts.length - 1] || "receipt";
+        }
+
+        const link = document.createElement("a");
+        link.href = url;
+        link.target = "_blank";
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const getFileType = (url: string) => {
+        const extension = url.split(".").pop()?.toLowerCase() || "";
+        if (["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(extension)) {
+            return "image";
+        }
+        if (["pdf"].includes(extension)) {
+            return "pdf";
+        }
+        return "file";
+    };
+
+    const getFileIcon = (url: string) => {
+        const type = getFileType(url);
+        if (type === "image") return <ImageIcon className="w-4 h-4" />;
+        if (type === "pdf") return <File className="w-4 h-4 text-red-500" />;
+        return <File className="w-4 h-4 text-slate-400" />;
+    };
+
+    const getFileName = (url: string) => {
+        const parts = url.split("/");
+        return parts[parts.length - 1] || "receipt";
+    };
 
     if (isLoading) {
         return (
@@ -108,6 +144,8 @@ export function ExpenseDetailClient({ expenseId }: { expenseId: string }) {
     }
 
     const isPending = expense.status === "pending";
+
+    console.log(expense)
 
     return (
         <div className="space-y-5">
@@ -136,12 +174,12 @@ export function ExpenseDetailClient({ expenseId }: { expenseId: string }) {
                             </Button>
                         </>
                     )}
-                    {canUpdate && isPending && (
+                    {canUpdate && (
                         <Button variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
                             <Pencil className="w-4 h-4" /> Edit
                         </Button>
                     )}
-                    {canDelete && isPending && (
+                    {canDelete && (
                         <Button variant="danger" size="sm" onClick={() => setDeleteConfirmOpen(true)}>
                             <Trash2 className="w-4 h-4" /> Delete
                         </Button>
@@ -200,15 +238,58 @@ export function ExpenseDetailClient({ expenseId }: { expenseId: string }) {
                                     {expense.approvedBy ? `${expense.approvedBy.firstName} ${expense.approvedBy.lastName}` : "—"}
                                 </span>
                             </div>
-                            {expense.receiptUrl && (
-                                <div className="flex justify-between">
-                                    <span className="text-sm text-slate-500">Receipt</span>
-                                    <a href={expense.receiptUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">View Receipt</a>
-                                </div>
-                            )}
                         </div>
                     </CardBody>
                 </Card>
+
+                {/* Receipts / Attachments Section */}
+                {expense.receipts && expense.receipts.length > 0 && (
+                    <Card className="col-span-2">
+                        <CardBody>
+                            <h3 className="text-sm font-semibold text-slate-800 mb-4">
+                                Receipts & Attachments ({expense.receipts.length})
+                            </h3>
+                            <div className="flex flex-wrap gap-3">
+                                {expense.receipts.map((receipt, index) => (
+                                    <div key={index} className="relative group">
+                                        <div className="w-32 h-32 rounded-lg border border-slate-200 overflow-hidden bg-slate-50 hover:border-blue-400 transition-colors">
+                                            {getFileType(receipt.url) === "image" ? (
+                                                <img
+                                                    src={receipt.url}
+                                                    alt={`Receipt ${index + 1}`}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex flex-col items-center justify-center p-4">
+                                                    {getFileIcon(receipt.url)}
+                                                    <span className="text-xs text-slate-400 mt-2 text-center break-all">
+                                                        {getFileName(receipt.url).slice(0, 15)}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={() => window.open(receipt.url, "_blank")}
+                                                className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                                title="View"
+                                            >
+                                                <ImageIcon className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDownload(receipt.url, `${expense.title}-receipt-${index + 1}`)}
+                                                className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                                title="Download"
+                                            >
+                                                <Download className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardBody>
+                    </Card>
+                )}
 
                 {expense.description && (
                     <Card className="col-span-2">

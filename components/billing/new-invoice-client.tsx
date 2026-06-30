@@ -1,7 +1,7 @@
 // components/billing/new-invoice-client.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
@@ -12,7 +12,7 @@ import { Card, CardHeader, CardBody, Button, FormField, Select, Alert, Input } f
 import { formatCurrency } from "@/lib/utils";
 import { OpdInvoiceSection } from "./opd-invoice-section";
 import { PharmacySaleSection } from "./pharmacy-sale-section";
-import { PharmacyPurchaseSection } from "./pharmacy-purchase-section";
+import { OtherInvoiceSection } from "./other-invoice-section";
 
 interface LineItem {
   description: string;
@@ -25,10 +25,10 @@ interface LineItem {
 }
 
 interface FormValues {
-  invoiceType: "opd" | "pharmacy_sale" | "pharmacy_purchase";
+  invoiceType: "opd" | "pharmacy_sale" | "other";
   patient?: string;
+  patientName?: string;
   doctor?: string;
-  supplier?: string;
   items: LineItem[];
   discount: number;
   discountType: "fixed" | "percentage";
@@ -107,7 +107,7 @@ export function NewInvoiceClient() {
               <Select {...register("invoiceType")}>
                 <option value="opd">OPD / Consultation</option>
                 <option value="pharmacy_sale">Pharmacy Sale (Patient)</option>
-                <option value="pharmacy_purchase">Pharmacy Purchase (Supplier)</option>
+                <option value="other">Other</option>
               </Select>
             </FormField>
           </CardBody>
@@ -132,8 +132,9 @@ export function NewInvoiceClient() {
           />
         )}
 
-        {invoiceType === "pharmacy_purchase" && (
-          <PharmacyPurchaseSection
+        {invoiceType === "other" && (
+          <OtherInvoiceSection
+            invoiceType={invoiceType}
             watchedItems={watchedItems}
             setValue={setValue}
             register={register}

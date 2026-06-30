@@ -25,6 +25,14 @@ export async function GET(_req: NextRequest) {
   const isSuperAdmin = session.user.isSuperAdmin;
   const perms = session.user.permissions || [];
 
+  // Doctor scoping
+  let doctorFilter = {};
+  if (!isSuperAdmin && perms.includes("appointments:view")) {
+    const { Doctor: DoctorModel } = await import("@/models/clinical.model");
+    const doctor = await DoctorModel.findOne({ user: session.user.id }).lean();
+    if (doctor) doctorFilter = { doctor: doctor._id };
+  }
+
   const [
     totalPatients,
     todayAppointments,
@@ -42,9 +50,10 @@ export async function GET(_req: NextRequest) {
 
     perms.includes("appointments:view") || isSuperAdmin
       ? Appointment.countDocuments({
-          scheduledDate: { $gte: todayStart, $lte: todayEnd },
-          status: { $nin: ["cancelled", "no_show"] },
-        })
+        ...doctorFilter,
+        scheduledDate: { $gte: todayStart, $lte: todayEnd },
+        status: { $nin: ["cancelled", "no_show"] },
+      })
       : Promise.resolve(null),
 
     perms.includes("doctors:view") || isSuperAdmin
@@ -61,33 +70,34 @@ export async function GET(_req: NextRequest) {
 
     perms.includes("audit_logs:view") || isSuperAdmin
       ? AuditLog.find({})
-          .sort({ createdAt: -1 })
-          .limit(10)
-          .populate("user", "firstName lastName")
-          .lean()
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .populate("user", "firstName lastName")
+        .lean()
       : Promise.resolve([]),
 
     perms.includes("appointments:view") || isSuperAdmin
       ? Appointment.aggregate([
-          {
-            $group: {
-              _id: "$status",
-              count: { $sum: 1 },
-            },
+        { $match: doctorFilter },
+        {
+          $group: {
+            _id: "$status",
+            count: { $sum: 1 },
           },
-        ])
+        },
+      ])
       : Promise.resolve([]),
 
     perms.includes("billing:view") || isSuperAdmin
       ? Invoice.aggregate([
-          {
-            $match: {
-              createdAt: { $gte: monthStart, $lte: monthEnd },
-              status: { $in: ["paid", "partial"] },
-            },
+        {
+          $match: {
+            createdAt: { $gte: monthStart, $lte: monthEnd },
+            status: { $in: ["paid", "partial"] },
           },
-          { $group: { _id: null, total: { $sum: "$paidAmount" } } },
-        ])
+        },
+        { $group: { _id: null, total: { $sum: "$paidAmount" } } },
+      ])
       : Promise.resolve([]),
 
     perms.includes("staff:view") || isSuperAdmin
@@ -115,14 +125,14 @@ export async function GET(_req: NextRequest) {
     const dayRevenue =
       perms.includes("billing:view") || isSuperAdmin
         ? await Invoice.aggregate([
-            {
-              $match: {
-                createdAt: { $gte: dayStart, $lte: dayEnd },
-                status: { $in: ["paid", "partial"] },
-              },
+          {
+            $match: {
+              createdAt: { $gte: dayStart, $lte: dayEnd },
+              status: { $in: ["paid", "partial"] },
             },
-            { $group: { _id: null, total: { $sum: "$paidAmount" } } },
-          ])
+          },
+          { $group: { _id: null, total: { $sum: "$paidAmount" } } },
+        ])
         : [];
 
     revenueChart.push({

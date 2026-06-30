@@ -70,7 +70,7 @@ export function PharmacyDetailClient({ medicineId }: { medicineId: string }) {
         mutationFn: () => axios.delete(`/api/pharmacy/${medicineId}`),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ["medicines"] });
-            router.push("/dashboard/pharmacy");
+            router.push("/pharmacy");
         },
         onError: (e: unknown) => {
             setDeleteError((e as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed to delete");

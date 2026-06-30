@@ -17,7 +17,7 @@ interface Invoice {
   invoiceNumber: string;
   invoiceType: string;
   patient?: { _id: string; firstName: string; lastName: string; patientId: string };
-  supplier?: { _id: string; name: string };
+  patientName?: string;
   doctor?: { _id: string; firstName: string; lastName: string };
   total: number;
   paidAmount: number;
@@ -54,9 +54,8 @@ export function BillingClient() {
 
   const typeLabel = (type: string) => {
     const labels: Record<string, string> = {
-      opd: "OPD/Consultation",
+      opd_consultation: "OPD/Consultation",
       pharmacy_sale: "Pharmacy Sale",
-      pharmacy_purchase: "Pharmacy Purchase",
       lab: "Lab Test",
       procedure: "Procedure",
       other: "Other",
@@ -64,6 +63,7 @@ export function BillingClient() {
     return labels[type] || type;
   };
 
+  console.log(invoices)
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -90,7 +90,7 @@ export function BillingClient() {
             <div className="relative flex-1 min-w-48">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input
-                placeholder="Search invoice number..."
+                placeholder="Search invoice number & patient name..."
                 value={search}
                 onChange={e => { setSearch(e.target.value); setPage(1); }}
                 className="pl-9"
@@ -98,10 +98,9 @@ export function BillingClient() {
             </div>
             <Select value={typeFilter} onChange={e => { setTypeFilter(e.target.value); setPage(1); }} className="w-44">
               <option value="">All types</option>
-              <option value="opd">OPD/Consultation</option>
+              <option value="opd_consultation">OPD/Consultation</option>
               <option value="pharmacy_sale">Pharmacy Sale</option>
-              <option value="pharmacy_purchase">Pharmacy Purchase</option>
-              <option value="lab">Lab Test</option>
+              <option value="other">Other</option>
             </Select>
             <Select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="w-40">
               <option value="">All statuses</option>
@@ -122,7 +121,7 @@ export function BillingClient() {
             <tr>
               <Th>Invoice #</Th>
               <Th>Type</Th>
-              <Th>Patient/Supplier</Th>
+              <Th>Patient</Th>
               <Th>Total</Th>
               <Th>Paid</Th>
               <Th>Balance</Th>
@@ -148,11 +147,11 @@ export function BillingClient() {
                   <Td>
                     {inv.patient ? (
                       <>
-                        <div className="font-medium text-slate-800">{inv.patient.firstName} {inv.patient.lastName}</div>
+                        <div className="text-xs font-medium text-slate-800">{inv.patient.firstName + ' ' + inv.patient.lastName}</div>
                         <div className="text-xs text-slate-400">{inv.patient.patientId}</div>
                       </>
-                    ) : inv.supplier ? (
-                      <div className="font-medium text-slate-800">{inv.supplier.name}</div>
+                    ) : inv.patientName ? (
+                      <div className="font-medium text-slate-800">{inv.patientName}</div>
                     ) : "—"}
                   </Td>
                   <Td className="font-medium">{formatCurrency(inv.total)}</Td>

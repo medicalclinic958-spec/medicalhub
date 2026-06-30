@@ -71,7 +71,7 @@ export function SupplierDetailClient({ supplierId }: { supplierId: string }) {
         mutationFn: () => axios.delete(`/api/supplier/${supplierId}`),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ["supplier"] });
-            router.push("/dashboard/supplier");
+            router.push("/supplier");
         },
         onError: (e: unknown) => {
             setDeleteError((e as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed to delete");
