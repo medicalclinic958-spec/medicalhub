@@ -10,7 +10,7 @@ import { Eye, EyeOff, Loader2, Stethoscope, ChevronRight, Hospital } from "lucid
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import Image from "next/image";
-
+import { useState as useClientState } from "react";
 
 const rotatingTexts = [
   "manage patients",
@@ -29,9 +29,17 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
   const [isTextVisible, setIsTextVisible] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Fix: Only run animations after component mounts
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Rotating text animation
   useEffect(() => {
+    if (!isMounted) return;
+
     const interval = setInterval(() => {
       setIsTextVisible(false);
       setTimeout(() => {
@@ -41,15 +49,17 @@ export function LoginForm() {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isMounted]);
 
   // Handle URL errors
   useEffect(() => {
+    if (!isMounted) return;
+
     const urlError = searchParams.get("error");
     if (urlError === "account_inactive") {
       toast.error("Your account is not active. Please contact admin.");
     }
-  }, [searchParams]);
+  }, [searchParams, isMounted]);
 
   const {
     register,
@@ -86,23 +96,37 @@ export function LoginForm() {
     }
   };
 
+  // Fix: Don't render the image during SSR/build
+  const renderBackgroundImage = () => {
+    // Only render on client side or when mounted
+    if (typeof window === 'undefined') return null;
+
+    return (
+      <Image
+        src="/clinic-bg.jpg"
+        alt="Clinic Background"
+        fill
+        className="object-cover opacity-20"
+        priority
+        sizes="55vw"
+        onError={() => {
+          // Handle missing image gracefully
+          console.warn('Background image not found');
+        }}
+      />
+    );
+  };
+
   return (
     <div className="min-h-screen flex flex-col lg:flex-row relative overflow-hidden bg-white">
       {/* Left Section with Background - Hidden on mobile */}
       <div className="hidden lg:flex lg:w-[55%] relative bg-gradient-to-br from-teal-800 via-teal-700 to-teal-900 min-h-screen">
         {/* Background Image with Overlay */}
         <div className="absolute inset-0">
-          <Image
-            src="/clinic-bg.jpg"
-            alt="Clinic Background"
-            fill
-            className="object-cover opacity-20"
-            priority
-            sizes="55vw"
-          />
+          {isMounted && renderBackgroundImage()}
         </div>
 
-        {/* Content */}
+        {/* Rest of your component remains the same */}
         <div className="relative z-10 flex flex-col justify-center px-12 xl:px-20 text-white w-full">
           {/* Logo */}
           <div className="mb-12">
@@ -112,7 +136,6 @@ export function LoginForm() {
               </div>
               <div>
                 <h2 className="text-2xl font-bold tracking-tight">ClinicHMS</h2>
-                {/* <p className="text-teal-200 text-sm">Hospital Management System</p> */}
               </div>
             </div>
           </div>
@@ -217,12 +240,6 @@ export function LoginForm() {
                 <label className="block text-sm font-medium text-gray-700">
                   Password
                 </label>
-                {/* <a
-                  href="/forgot-password"
-                  className="text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors"
-                >
-                  Forgot password?
-                </a> */}
               </div>
               <div className="relative">
                 <input
@@ -254,19 +271,6 @@ export function LoginForm() {
                 <p className="text-red-500 text-xs mt-1.5 ml-1">{errors.password.message}</p>
               )}
             </div>
-
-            {/* Remember Me */}
-            {/* <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="rememberMe"
-                className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
-                {...register("rememberMe")}
-              />
-              <label htmlFor="rememberMe" className="ml-2 text-sm text-gray-600">
-                Remember me for 8 hours
-              </label>
-            </div> */}
 
             {/* Submit Button */}
             <button
