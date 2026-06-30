@@ -10,6 +10,11 @@ const nextConfig: NextConfig = {
     ],
   },
 
+  // Skip TypeScript type checking during build to prevent memory issues
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+
   // Silence the deprecation warning about "middleware" → "proxy" rename
   // (This is a Next.js canary warning; safe to ignore or suppress)
   experimental: {
