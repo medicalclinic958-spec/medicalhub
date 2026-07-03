@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Modal, FormField, Input, Select, Button, Alert } from "@/components/ui";
 import { updateExpenseSchema, UpdateExpenseInput } from "@/lib/validations";
-import { X, Image as ImageIcon, Download } from "lucide-react";
+import { X, Image as ImageIcon, Download, Eye } from "lucide-react";
 
 interface ExpenseDetail {
     _id: string;
@@ -215,63 +215,66 @@ export function EditExpenseModal({ open, onClose, expense, onUpdate, isPending, 
                             {existingFiles.map((receipt, index) => {
                                 const isMarkedForRemoval = filesToRemove.includes(index);
                                 return (
-                                    <div key={index} className="relative group">
-                                        <div className={`w-24 h-24 rounded-lg border-2 overflow-hidden bg-slate-50 transition-all ${isMarkedForRemoval ? 'border-red-400 opacity-50' : 'border-slate-200'
+                                    <div key={index} className="relative">
+                                        <div className={`w-24 rounded-lg border-2 overflow-hidden bg-slate-50 transition-all ${isMarkedForRemoval ? 'border-red-400 opacity-50' : 'border-slate-200'
                                             }`}>
-                                            {getFileType(receipt.url) === "image" ? (
-                                                <img
-                                                    src={receipt.url}
-                                                    alt={`Receipt ${index + 1}`}
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            ) : (
-                                                <div className="w-full h-full flex flex-col items-center justify-center p-2">
-                                                    <span className="text-xs text-slate-400 text-center break-all">
-                                                        {getFileName(receipt.url).slice(0, 15)}
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="absolute inset-0 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button
-                                                type="button"
-                                                onClick={() => window.open(receipt.url, "_blank")}
-                                                className="p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                                                title="View"
-                                            >
-                                                <ImageIcon className="w-3.5 h-3.5" />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    const link = document.createElement("a");
-                                                    link.href = receipt.url;
-                                                    link.target = "_blank";
-                                                    link.download = getFileName(receipt.url);
-                                                    document.body.appendChild(link);
-                                                    link.click();
-                                                    document.body.removeChild(link);
-                                                }}
-                                                className="p-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                                                title="Download"
-                                            >
-                                                <Download className="w-3.5 h-3.5" />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => isMarkedForRemoval ? unmarkForRemoval(index) : markForRemoval(index)}
-                                                className={`p-1.5 rounded-lg transition-colors ${isMarkedForRemoval
-                                                    ? 'bg-green-600 hover:bg-green-700 text-white'
-                                                    : 'bg-red-600 hover:bg-red-700 text-white'
-                                                    }`}
-                                                title={isMarkedForRemoval ? "Undo remove" : "Remove"}
-                                            >
-                                                {isMarkedForRemoval ? (
-                                                    <span className="text-xs font-bold">↩</span>
+                                            <div className="w-24 h-24">
+                                                {getFileType(receipt.url) === "image" ? (
+                                                    <img
+                                                        src={receipt.url}
+                                                        alt={`Receipt ${index + 1}`}
+                                                        className="w-full h-full object-cover"
+                                                    />
                                                 ) : (
-                                                    <X className="w-3.5 h-3.5" />
+                                                    <div className="w-full h-full flex flex-col items-center justify-center p-2">
+                                                        <span className="text-xs text-slate-400 text-center break-all">
+                                                            {getFileName(receipt.url).slice(0, 15)}
+                                                        </span>
+                                                    </div>
                                                 )}
-                                            </button>
+                                            </div>
+                                            {/* Always-visible action bar */}
+                                            <div className="flex items-center justify-center gap-0.5 bg-slate-100 border-t border-slate-200 py-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => window.open(receipt.url, "_blank")}
+                                                    className="p-1 bg-blue-600 text-white rounded hover:bg-blue-700 active:bg-blue-800 transition-colors"
+                                                    title="View"
+                                                >
+                                                    <Eye className="w-3 h-3" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const link = document.createElement("a");
+                                                        link.href = receipt.url;
+                                                        link.target = "_blank";
+                                                        link.download = getFileName(receipt.url);
+                                                        document.body.appendChild(link);
+                                                        link.click();
+                                                        document.body.removeChild(link);
+                                                    }}
+                                                    className="p-1 bg-green-600 text-white rounded hover:bg-green-700 active:bg-green-800 transition-colors"
+                                                    title="Download"
+                                                >
+                                                    <Download className="w-3 h-3" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => isMarkedForRemoval ? unmarkForRemoval(index) : markForRemoval(index)}
+                                                    className={`p-1 rounded transition-colors ${isMarkedForRemoval
+                                                        ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white'
+                                                        : 'bg-red-600 hover:bg-red-700 active:bg-red-800 text-white'
+                                                        }`}
+                                                    title={isMarkedForRemoval ? "Undo remove" : "Remove"}
+                                                >
+                                                    {isMarkedForRemoval ? (
+                                                        <span className="text-[10px] font-bold px-0.5">↩</span>
+                                                    ) : (
+                                                        <X className="w-3 h-3" />
+                                                    )}
+                                                </button>
+                                            </div>
                                         </div>
                                         {isMarkedForRemoval && (
                                             <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
@@ -316,7 +319,7 @@ export function EditExpenseModal({ open, onClose, expense, onUpdate, isPending, 
                     {selectedFiles.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-3">
                             {selectedFiles.map((file, index) => (
-                                <div key={index} className="relative group">
+                                <div key={index} className="relative w-20">
                                     <div className="w-20 h-20 rounded-lg border border-slate-200 overflow-hidden bg-slate-50">
                                         {file.type.startsWith("image/") ? (
                                             <img
@@ -333,7 +336,8 @@ export function EditExpenseModal({ open, onClose, expense, onUpdate, isPending, 
                                     <button
                                         type="button"
                                         onClick={() => removeNewFile(index)}
-                                        className="absolute -top-1.5 -right-1.5 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                        className="absolute -top-1.5 -right-1.5 p-0.5 bg-red-500 text-white rounded-full hover:bg-red-600 active:bg-red-700 transition-colors shadow-sm"
+                                        title="Remove"
                                     >
                                         <X className="w-3 h-3" />
                                     </button>

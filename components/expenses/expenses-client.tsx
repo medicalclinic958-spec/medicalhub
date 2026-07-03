@@ -146,7 +146,7 @@ export function ExpensesClient() {
         {canCreate && <Button onClick={() => setCreateOpen(true)}><Plus className="w-4 h-4" /> Add Expense</Button>}
       </div>
 
-      <StatCard title="Total Expenses (Period)" value={formatCurrency(totalAmount)} icon={TrendingDown} color="red" loading={isLoading} />
+      <StatCard title="Total Expenses (Period)" value={formatCurrency(totalAmount)} icon={TrendingDown} loading={isLoading} />
 
       <Card>
         <CardBody className="py-3">
@@ -287,7 +287,7 @@ export function ExpensesClient() {
             {selectedFiles.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-3">
                 {selectedFiles.map((file, index) => (
-                  <div key={index} className="relative group">
+                  <div key={index} className="relative w-20">
                     <div className="w-20 h-20 rounded-lg border border-slate-200 overflow-hidden bg-slate-50">
                       {file.type.startsWith("image/") ? (
                         <img
@@ -304,7 +304,8 @@ export function ExpensesClient() {
                     <button
                       type="button"
                       onClick={() => removeFile(index)}
-                      className="absolute -top-1.5 -right-1.5 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute -top-1.5 -right-1.5 p-0.5 bg-red-500 text-white rounded-full hover:bg-red-600 active:bg-red-700 transition-colors shadow-sm"
+                      title="Remove"
                     >
                       <X className="w-3 h-3" />
                     </button>

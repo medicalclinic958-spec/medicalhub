@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-import { ArrowLeft, TrendingDown, Pencil, Trash2, CheckCircle, XCircle, Clock, Download, Image as ImageIcon, File, X } from "lucide-react";
+import { ArrowLeft, TrendingDown, Pencil, Trash2, CheckCircle, XCircle, Clock, Download, Image as ImageIcon, File, X, Eye } from "lucide-react";
 import { Card, CardBody, Badge, Button, Modal, Alert, StatusBadge } from "@/components/ui";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useSession } from "next-auth/react";
@@ -145,8 +145,6 @@ export function ExpenseDetailClient({ expenseId }: { expenseId: string }) {
 
     const isPending = expense.status === "pending";
 
-    console.log(expense)
-
     return (
         <div className="space-y-5">
             <div className="flex items-center justify-between">
@@ -166,7 +164,7 @@ export function ExpenseDetailClient({ expenseId }: { expenseId: string }) {
                 <div className="flex items-center gap-2">
                     {canApprove && isPending && (
                         <>
-                            <Button variant="secondary" size="sm" className="!bg-green-600 !text-white hover:!bg-green-700" onClick={() => approveMutation.mutate()} loading={approveMutation.isPending}>
+                            <Button variant="secondary" size="sm" className="bg-green-600! text-white! hover:bg-green-700!" onClick={() => approveMutation.mutate()} loading={approveMutation.isPending}>
                                 <CheckCircle className="w-4 h-4" /> Approve
                             </Button>
                             <Button variant="danger" size="sm" onClick={() => rejectMutation.mutate()} loading={rejectMutation.isPending}>
@@ -251,8 +249,8 @@ export function ExpenseDetailClient({ expenseId }: { expenseId: string }) {
                             </h3>
                             <div className="flex flex-wrap gap-3">
                                 {expense.receipts.map((receipt, index) => (
-                                    <div key={index} className="relative group">
-                                        <div className="w-32 h-32 rounded-lg border border-slate-200 overflow-hidden bg-slate-50 hover:border-blue-400 transition-colors">
+                                    <div key={index} className="w-32 rounded-lg border border-slate-200 overflow-hidden bg-slate-50">
+                                        <div className="w-32 h-32">
                                             {getFileType(receipt.url) === "image" ? (
                                                 <img
                                                     src={receipt.url}
@@ -268,20 +266,21 @@ export function ExpenseDetailClient({ expenseId }: { expenseId: string }) {
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        {/* Always-visible action bar */}
+                                        <div className="flex items-center justify-center gap-1 bg-slate-100 border-t border-slate-200 py-1.5">
                                             <button
                                                 onClick={() => window.open(receipt.url, "_blank")}
-                                                className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                                className="p-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 active:bg-blue-800 transition-colors"
                                                 title="View"
                                             >
-                                                <ImageIcon className="w-4 h-4" />
+                                                <Eye className="w-3.5 h-3.5" />
                                             </button>
                                             <button
                                                 onClick={() => handleDownload(receipt.url, `${expense.title}-receipt-${index + 1}`)}
-                                                className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                                className="p-1.5 bg-green-600 text-white rounded hover:bg-green-700 active:bg-green-800 transition-colors"
                                                 title="Download"
                                             >
-                                                <Download className="w-4 h-4" />
+                                                <Download className="w-3.5 h-3.5" />
                                             </button>
                                         </div>
                                     </div>
