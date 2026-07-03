@@ -17,6 +17,7 @@ import {
 } from "@/components/ui";
 import { createMedicineSchema, CreateMedicineInput } from "@/lib/validations";
 import { ScanLine, PenLine, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface MedicineCreateModalProps {
     open: boolean;
@@ -57,9 +58,11 @@ export function MedicineCreateModal({ open, onClose }: MedicineCreateModalProps)
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ["medicines"] });
             handleClose();
+            toast.success("Medicine created successfully!");
         },
         onError: (e: unknown) => {
             setCreateError((e as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed to create medicine");
+            toast.error("Failed to create medicine.");
         },
     });
 
@@ -105,7 +108,7 @@ export function MedicineCreateModal({ open, onClose }: MedicineCreateModalProps)
                 setActiveTab("manual");
             }
         } catch {
-            setScannerError("Could not verify barcode. Please try again or enter manually.");
+            toast.error("Could not verify barcode. Please try again or enter manually.");
         } finally {
             setCheckingBarcode(false);
         }
@@ -142,7 +145,7 @@ export function MedicineCreateModal({ open, onClose }: MedicineCreateModalProps)
             .catch(() => {
                 if (!cancelled) {
                     setScannerStarting(false);
-                    setScannerError("Camera access failed. Check permissions or use Manual Entry.");
+                    toast.error("Camera access failed. Check permissions or use Manual Entry.");
                 }
             });
 
@@ -177,9 +180,9 @@ export function MedicineCreateModal({ open, onClose }: MedicineCreateModalProps)
                 <button
                     type="button"
                     onClick={() => setActiveTab("manual")}
-                    className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "manual"
-                            ? "border-teal-600 text-teal-700"
-                            : "border-transparent text-slate-500 hover:text-slate-700"
+                    className={`cursor-pointer flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "manual"
+                        ? "border-teal-600 text-teal-700"
+                        : "border-transparent text-slate-500 hover:text-slate-700"
                         }`}
                 >
                     <PenLine className="w-4 h-4" />
@@ -188,9 +191,9 @@ export function MedicineCreateModal({ open, onClose }: MedicineCreateModalProps)
                 <button
                     type="button"
                     onClick={() => setActiveTab("scan")}
-                    className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "scan"
-                            ? "border-teal-600 text-teal-700"
-                            : "border-transparent text-slate-500 hover:text-slate-700"
+                    className={`cursor-pointer flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "scan"
+                        ? "border-teal-600 text-teal-700"
+                        : "border-transparent text-slate-500 hover:text-slate-700"
                         }`}
                 >
                     <ScanLine className="w-4 h-4" />

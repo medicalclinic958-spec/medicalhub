@@ -5,6 +5,8 @@ import { Session } from "next-auth";
 import {
   Users, Calendar, Stethoscope, DollarSign,
   Receipt, FlaskConical, TrendingUp, Clock,
+  Tablet,
+  Pill,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -53,11 +55,13 @@ export function DashboardClient({ session }: { session: Session }) {
     ([status, count]) => ({ name: status.replace(/_/g, " "), value: count, color: STATUS_COLORS[status] || "#94a3b8" })
   );
 
+
   const quickActions = [
     { label: "New Patient", href: "/patients?action=new", perm: "patients:create", icon: Users },
     { label: "Book Appointment", href: "/appointments?action=new", perm: "appointments:create", icon: Calendar },
     { label: "New Invoice", href: "/billing?action=new", perm: "billing:create", icon: Receipt },
     { label: "Lab Test", href: "/lab?action=new", perm: "lab:create", icon: FlaskConical },
+    { label: "New Medicine", href: "/pharmacy", perm: "pharmacy:create", icon: Pill },
   ].filter((a) => isSA || perms.includes(a.perm));
 
   return (

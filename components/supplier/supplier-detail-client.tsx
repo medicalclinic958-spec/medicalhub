@@ -5,10 +5,11 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-import { ArrowLeft, Building2, User, Pencil, Trash2, Phone, Mail, MapPin, Globe, CreditCard, Building } from "lucide-react";
+import { ArrowLeft, Building2, User, Pencil, Trash2, Phone, Mail, MapPin, Globe } from "lucide-react";
 import { Card, CardBody, Badge, Button, Modal, Alert } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 import { EditSupplierModal } from "./edit-supplier-modal";
 
 interface SupplierDetail {
@@ -58,196 +59,235 @@ export function SupplierDetailClient({ supplierId }: { supplierId: string }) {
         mutationFn: (d: any) => axios.put(`/api/supplier/${supplierId}`, d),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ["supplier", supplierId] });
-            qc.invalidateQueries({ queryKey: ["supplier"] });
+            qc.invalidateQueries({ queryKey: ["suppliers"] });
             setEditOpen(false);
             setEditError("");
+            toast.success("Supplier updated successfully!");
         },
         onError: (e: unknown) => {
             setEditError((e as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed to update");
+            toast.error("Failed to update supplier.");
         },
     });
 
     const deleteMutation = useMutation({
         mutationFn: () => axios.delete(`/api/supplier/${supplierId}`),
         onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ["supplier"] });
+            qc.invalidateQueries({ queryKey: ["suppliers"] });
+            toast.success("Supplier deleted successfully!");
             router.push("/supplier");
         },
         onError: (e: unknown) => {
             setDeleteError((e as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed to delete");
+            toast.error("Failed to delete supplier.");
         },
     });
 
     if (isLoading) {
         return (
-            <div className="space-y-5">
-                <div className="h-8 bg-slate-100 rounded w-48 animate-pulse" />
-                <Card><CardBody><div className="h-64 bg-slate-50 rounded animate-pulse" /></CardBody></Card>
+            <div className="space-y-4">
+                <div className="h-8 bg-gray-100 rounded w-48" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {[...Array(4)].map((_, i) => (
+                        <Card key={i}><CardBody><div className="h-40 bg-gray-50 rounded" /></CardBody></Card>
+                    ))}
+                </div>
             </div>
         );
     }
 
     if (!supplier) {
         return (
-            <div className="space-y-5">
-                <Button variant="secondary" onClick={() => router.back()}><ArrowLeft className="w-4 h-4" /> Back</Button>
-                <Card><CardBody><p className="text-center text-slate-500 py-12">Supplier not found</p></CardBody></Card>
+            <div className="space-y-4">
+                <button
+                    onClick={() => router.back()}
+                    className="inline-flex items-center gap-2 text-xs text-gray-500 cursor-pointer"
+                >
+                    <ArrowLeft className="w-4 h-4" /> Back
+                </button>
+                <Card>
+                    <CardBody>
+                        <p className="text-center text-gray-400 py-12 text-xs">Supplier not found</p>
+                    </CardBody>
+                </Card>
             </div>
         );
     }
 
     return (
-        <div className="space-y-5">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <button onClick={() => router.back()} className="p-2 hover:bg-slate-100 rounded-lg">
-                        <ArrowLeft className="w-5 h-5 text-slate-500" />
+        <div className="space-y-4">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-start gap-3 min-w-0">
+                    <button
+                        onClick={() => router.back()}
+                        className="p-2 rounded-lg border border-gray-300 text-gray-400 cursor-pointer shrink-0 mt-0.5"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
                     </button>
-                    <div>
-                        <div className="flex items-center gap-2">
-                            {supplier.type === "company" ? <Building2 className="w-5 h-5 text-blue-600" /> : <User className="w-5 h-5 text-blue-600" />}
-                            <h1 className="text-xl font-bold text-slate-800">{supplier.name}</h1>
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {supplier.type === "company" ? (
+                                <Building2 className="w-4 h-4 text-teal-600 shrink-0" />
+                            ) : (
+                                <User className="w-4 h-4 text-teal-600 shrink-0" />
+                            )}
+                            <h1 className="text-lg font-semibold text-gray-900 truncate">{supplier.name}</h1>
                             <Badge variant={supplier.isActive ? "success" : "default"}>
                                 {supplier.isActive ? "Active" : "Inactive"}
                             </Badge>
                         </div>
-                        <p className="text-sm text-slate-500 capitalize">{supplier.type} • Supplier</p>
+                        <p className="text-xs text-gray-500 mt-0.5 capitalize">{supplier.type} • Supplier</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                     {canUpdate && (
                         <Button variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
-                            <Pencil className="w-4 h-4" /> Edit
+                            <Pencil className="w-3.5 h-3.5" /> Edit
                         </Button>
                     )}
                     {canDelete && (
                         <Button variant="danger" size="sm" onClick={() => setDeleteConfirmOpen(true)}>
-                            <Trash2 className="w-4 h-4" /> Delete
+                            <Trash2 className="w-3.5 h-3.5" /> Delete
                         </Button>
                     )}
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-5">
+            {/* Detail Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Contact Information */}
                 <Card>
                     <CardBody>
-                        <h3 className="text-sm font-semibold text-slate-800 mb-4">Contact Information</h3>
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2">
-                                <User className="w-4 h-4 text-slate-400" />
-                                <span className="text-sm font-medium text-slate-800">{supplier.contactPerson || supplier.name}</span>
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center">
+                                <Phone className="w-4 h-4 text-teal-600" />
                             </div>
-                            <div className="flex items-center gap-2">
-                                <Phone className="w-4 h-4 text-slate-400" />
-                                <span className="text-sm text-slate-700">{supplier.phone}</span>
-                            </div>
+                            <h3 className="text-xs font-semibold text-gray-900">Contact Information</h3>
+                        </div>
+                        <div className="space-y-2.5">
+                            <Row label="Contact Person" value={supplier.contactPerson || supplier.name} />
+                            <Row label="Phone" value={supplier.phone} />
                             {supplier.alternatePhone && (
-                                <div className="flex items-center gap-2">
-                                    <Phone className="w-4 h-4 text-slate-400" />
-                                    <span className="text-sm text-slate-700">{supplier.alternatePhone}</span>
-                                </div>
+                                <Row label="Alternate Phone" value={supplier.alternatePhone} />
                             )}
                             {supplier.email && (
-                                <div className="flex items-center gap-2">
-                                    <Mail className="w-4 h-4 text-slate-400" />
-                                    <span className="text-sm text-slate-700">{supplier.email}</span>
-                                </div>
+                                <Row label="Email" value={supplier.email} />
                             )}
                             {supplier.address && (
-                                <div className="flex items-center gap-2">
-                                    <MapPin className="w-4 h-4 text-slate-400" />
-                                    <span className="text-sm text-slate-700">{supplier.address}</span>
-                                </div>
+                                <Row label="Address" value={supplier.address} />
                             )}
                         </div>
                     </CardBody>
                 </Card>
 
+                {/* Business Information */}
                 <Card>
                     <CardBody>
-                        <h3 className="text-sm font-semibold text-slate-800 mb-4">Business Information</h3>
-                        <div className="space-y-3">
-                            <div className="flex justify-between">
-                                <span className="text-sm text-slate-500">Tax ID / NTN</span>
-                                <span className="text-sm font-medium text-slate-800">{supplier.taxId || "—"}</span>
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center">
+                                <Building2 className="w-4 h-4 text-teal-600" />
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-sm text-slate-500">License Number</span>
-                                <span className="text-sm font-medium text-slate-800">{supplier.licenseNumber || "—"}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-sm text-slate-500">Website</span>
-                                <span className="text-sm font-medium text-slate-800">
-                                    {supplier.website ? (
-                                        <a href={supplier.website.startsWith('http') ? supplier.website : `https://${supplier.website}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
-                                            <Globe className="w-3 h-3" /> {supplier.website}
-                                        </a>
-                                    ) : "—"}
-                                </span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-sm text-slate-500">Payment Terms</span>
-                                <span className="text-sm font-medium text-slate-800">{supplier.paymentTerms || "—"}</span>
-                            </div>
+                            <h3 className="text-xs font-semibold text-gray-900">Business Information</h3>
+                        </div>
+                        <div className="space-y-2.5">
+                            <Row label="Tax ID / NTN" value={supplier.taxId || "—"} />
+                            <Row label="License Number" value={supplier.licenseNumber || "—"} />
+                            <Row label="Website">
+                                {supplier.website ? (
+                                    <a
+                                        href={supplier.website.startsWith('http') ? supplier.website : `https://${supplier.website}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-teal-600 flex items-center gap-1"
+                                    >
+                                        <Globe className="w-3 h-3" /> {supplier.website}
+                                    </a>
+                                ) : (
+                                    <span className="text-gray-300">—</span>
+                                )}
+                            </Row>
+                            <Row label="Payment Terms" value={supplier.paymentTerms || "—"} />
                         </div>
                     </CardBody>
                 </Card>
 
+                {/* Bank Details */}
                 <Card>
                     <CardBody>
-                        <h3 className="text-sm font-semibold text-slate-800 mb-4">Bank Details</h3>
-                        <div className="space-y-3">
-                            <div className="flex justify-between">
-                                <span className="text-sm text-slate-500">Bank Name</span>
-                                <span className="text-sm font-medium text-slate-800">{supplier.bankName || "—"}</span>
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center">
+                                <Building2 className="w-4 h-4 text-teal-600" />
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-sm text-slate-500">Account Number</span>
-                                <span className="text-sm font-medium text-slate-800">{supplier.accountNumber || "—"}</span>
-                            </div>
+                            <h3 className="text-xs font-semibold text-gray-900">Bank Details</h3>
+                        </div>
+                        <div className="space-y-2.5">
+                            <Row label="Bank Name" value={supplier.bankName || "—"} />
+                            <Row label="Account Number" value={supplier.accountNumber || "—"} />
                         </div>
                     </CardBody>
                 </Card>
 
+                {/* Categories */}
                 <Card>
                     <CardBody>
-                        <h3 className="text-sm font-semibold text-slate-800 mb-4">Categories</h3>
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center">
+                                <Building2 className="w-4 h-4 text-teal-600" />
+                            </div>
+                            <h3 className="text-xs font-semibold text-gray-900">Categories</h3>
+                        </div>
                         {supplier.categories?.length ? (
-                            <div className="flex flex-wrap gap-2">
-                                {supplier.categories.map(c => <Badge key={c} variant="outline">{c}</Badge>)}
+                            <div className="flex flex-wrap gap-1.5">
+                                {supplier.categories.map(c => (
+                                    <Badge key={c} variant="outline">{c}</Badge>
+                                ))}
                             </div>
                         ) : (
-                            <p className="text-sm text-slate-400">No categories assigned</p>
+                            <p className="text-xs text-gray-400">No categories assigned</p>
                         )}
                     </CardBody>
                 </Card>
 
+                {/* Notes */}
                 {supplier.notes && (
-                    <Card className="col-span-2">
+                    <Card className="sm:col-span-2">
                         <CardBody>
-                            <h3 className="text-sm font-semibold text-slate-800 mb-4">Notes</h3>
-                            <p className="text-sm text-slate-700">{supplier.notes}</p>
+                            <div className="flex items-center gap-2 mb-4">
+                                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+                                    <Pencil className="w-4 h-4 text-gray-400" />
+                                </div>
+                                <h3 className="text-xs font-semibold text-gray-900">Notes</h3>
+                            </div>
+                            <p className="text-xs text-gray-600">{supplier.notes}</p>
                         </CardBody>
                     </Card>
                 )}
 
-                <Card className="col-span-2">
+                {/* Record Information */}
+                <Card className="sm:col-span-2">
                     <CardBody>
-                        <h3 className="text-sm font-semibold text-slate-800 mb-4">Record Information</h3>
-                        <div className="flex gap-8">
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+                                <Pencil className="w-4 h-4 text-gray-400" />
+                            </div>
+                            <h3 className="text-xs font-semibold text-gray-900">Record Information</h3>
+                        </div>
+                        <div className="flex gap-6 sm:gap-10">
                             <div>
-                                <span className="text-sm text-slate-500">Created</span>
-                                <p className="text-sm font-medium text-slate-800">{formatDate(supplier.createdAt)}</p>
+                                <p className="text-xs text-gray-400">Created</p>
+                                <p className="text-xs text-gray-700 mt-0.5">{formatDate(supplier.createdAt)}</p>
                             </div>
                             <div>
-                                <span className="text-sm text-slate-500">Last Updated</span>
-                                <p className="text-sm font-medium text-slate-800">{formatDate(supplier.updatedAt)}</p>
+                                <p className="text-xs text-gray-400">Last Updated</p>
+                                <p className="text-xs text-gray-700 mt-0.5">{formatDate(supplier.updatedAt)}</p>
                             </div>
                         </div>
                     </CardBody>
                 </Card>
             </div>
 
+            {/* Edit Modal */}
             <EditSupplierModal
                 open={editOpen}
                 onClose={() => { setEditOpen(false); setEditError(""); }}
@@ -257,26 +297,54 @@ export function SupplierDetailClient({ supplierId }: { supplierId: string }) {
                 error={editError}
             />
 
-            <Modal open={deleteConfirmOpen} onClose={() => { setDeleteConfirmOpen(false); setDeleteError(""); }} title="Delete Supplier" size="sm">
+            {/* Delete Confirmation Modal */}
+            <Modal
+                open={deleteConfirmOpen}
+                onClose={() => { setDeleteConfirmOpen(false); setDeleteError(""); }}
+                title="Delete Supplier"
+                size="sm"
+            >
                 <div className="space-y-4 mt-2">
                     {deleteError && <Alert type="error">{deleteError}</Alert>}
-                    <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-100">
-                        <Trash2 className="w-5 h-5 text-red-500 shrink-0" />
+                    <div className="flex items-start gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                        <Trash2 className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
                         <div>
-                            <p className="text-sm font-medium text-red-800">Delete permanently?</p>
-                            <p className="text-sm text-red-600">
+                            <p className="text-xs font-semibold text-red-800">Delete permanently?</p>
+                            <p className="text-xs text-red-600 mt-0.5">
                                 This will permanently delete <strong>{supplier.name}</strong>. This action cannot be undone.
                             </p>
                         </div>
                     </div>
-                    <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                        <Button variant="secondary" onClick={() => { setDeleteConfirmOpen(false); setDeleteError(""); }}>Cancel</Button>
+                    <div className="flex justify-end gap-2 pt-2 border-t border-gray-300">
+                        <Button variant="secondary" onClick={() => { setDeleteConfirmOpen(false); setDeleteError(""); }}>
+                            Cancel
+                        </Button>
                         <Button variant="danger" loading={deleteMutation.isPending} onClick={() => deleteMutation.mutate()}>
                             Delete Permanently
                         </Button>
                     </div>
                 </div>
             </Modal>
+        </div>
+    );
+}
+
+// --- Reusable row component ---
+function Row({ label, value, children }: {
+    label: string;
+    value?: string;
+    children?: React.ReactNode;
+}) {
+    return (
+        <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-gray-400 shrink-0">{label}</span>
+            {children ? (
+                <span className="text-xs text-right">{children}</span>
+            ) : (
+                <span className="text-xs text-gray-700 text-right truncate">
+                    {value}
+                </span>
+            )}
         </div>
     );
 }

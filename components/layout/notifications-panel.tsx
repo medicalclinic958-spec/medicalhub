@@ -49,7 +49,7 @@ export function NotificationsPanel() {
       >
         <BellIcon className="w-5 h-5" />
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+          <span className="absolute top-1 right-1 min-w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
@@ -58,7 +58,7 @@ export function NotificationsPanel() {
       {open && (
         <>
           <div className="fixed inset-0 z-10 cursor-pointer" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl border border-gray-200 shadow-xl z-20 overflow-hidden">
+          <div className="absolute sm:right-0 -right-20 top-full mt-2 w-80 bg-white rounded-2xl border border-gray-200 shadow-xl z-20 overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
               <div className="flex items-center gap-2">

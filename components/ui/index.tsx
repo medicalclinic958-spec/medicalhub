@@ -1,3 +1,4 @@
+// components/ui/index.tsx
 "use client";
 
 import { cn } from "@/lib/utils";
@@ -10,7 +11,7 @@ type BadgeVariant = "default" | "success" | "warning" | "danger" | "info" | "out
 const badgeVariants: Record<BadgeVariant, string> = {
   default: "bg-gray-100 text-gray-700",
   success: "bg-teal-100 text-teal-700",
-  warning: "bg-teal-50 text-teal-700",
+  warning: "bg-amber-100 text-amber-700",
   danger: "bg-red-100 text-red-700",
   info: "bg-teal-50 text-teal-700",
   outline: "border border-gray-300 text-gray-600",
@@ -77,7 +78,7 @@ export function Card({
   className?: string;
 }) {
   return (
-    <div className={cn("bg-white rounded-xl border border-gray-300", className)}>
+    <div className={cn("bg-white rounded-lg border border-gray-300", className)}>
       {children}
     </div>
   );
@@ -85,12 +86,12 @@ export function Card({
 
 export function CardHeader({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("px-6 py-4 border-b border-gray-100", className)}>{children}</div>
+    <div className={cn("px-4 py-3 border-b border-gray-300", className)}>{children}</div>
   );
 }
 
 export function CardBody({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("px-6 py-4", className)}>{children}</div>;
+  return <div className={cn("px-4 py-3", className)}>{children}</div>;
 }
 
 // ─── STAT CARD ────────────────────────────────────────────
@@ -107,20 +108,20 @@ export function StatCard({
   loading?: boolean;
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-300 p-5">
+    <div className="bg-white rounded-lg border border-gray-300 p-4">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs text-gray-500 font-medium">{title}</p>
+          <p className="text-xs text-gray-400 font-medium">{title}</p>
           {loading ? (
-            <div className="mt-1.5 h-8 w-20 bg-gray-100 rounded animate-pulse" />
+            <div className="mt-1 h-7 w-16 bg-gray-100 rounded" />
           ) : (
-            <p className="text-2xl font-bold text-gray-800 mt-0.5">
+            <p className="text-lg font-semibold text-gray-900 mt-0.5">
               {value ?? "—"}
             </p>
           )}
         </div>
-        <div className="p-2.5 rounded-xl bg-teal-50">
-          <Icon className="w-5 h-5 text-teal-600" />
+        <div className="p-2 rounded-lg bg-teal-50">
+          <Icon className="w-4 h-4 text-teal-600" />
         </div>
       </div>
     </div>
@@ -151,7 +152,7 @@ export function Th({ children, className }: { children: ReactNode; className?: s
 
 export function Td({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <td className={cn("px-4 py-3 text-xs text-gray-700 border-t border-gray-100", className)}>
+    <td className={cn("px-4 py-3 text-xs text-gray-600 border-t border-gray-100", className)}>
       {children}
     </td>
   );
@@ -191,20 +192,20 @@ export function Modal({
       <div className="absolute inset-0 bg-black/50 cursor-pointer" onClick={onClose} />
       <div
         className={cn(
-          "relative bg-white rounded-2xl w-full flex flex-col max-h-[90vh]",
+          "relative bg-white rounded-lg w-full flex flex-col max-h-[90vh]",
           sizeMap[size]
         )}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-300 shrink-0">
-          <h2 className="text-sm font-semibold text-gray-800">{title}</h2>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-300 shrink-0">
+          <h2 className="text-xs font-semibold text-gray-900">{title}</h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all cursor-pointer"
+            className="p-1.5 rounded-lg text-gray-400 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="overflow-y-auto flex-1 px-6 py-4">{children}</div>
+        <div className="overflow-y-auto flex-1 px-4 py-3">{children}</div>
       </div>
     </div>
   );
@@ -226,7 +227,7 @@ export function FormField({
 }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-700 mb-1.5">
+      <label className="block text-xs font-medium text-gray-600 mb-1.5">
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
       </label>
@@ -246,8 +247,8 @@ export function Input({
   return (
     <input
       className={cn(
-        "w-full px-3 py-2 rounded-lg border text-xs text-gray-800 placeholder:text-gray-400",
-        "focus:outline-none focus:border-teal-500 transition-all",
+        "w-full px-3 py-2 rounded-lg border text-xs text-gray-700 placeholder:text-gray-400",
+        "focus:outline-none focus:border-teal-600",
         "disabled:bg-gray-50 disabled:text-gray-400",
         error ? "border-red-400 bg-red-50" : "border-gray-300 bg-white",
         className
@@ -267,8 +268,8 @@ export function Select({
   return (
     <select
       className={cn(
-        "w-full px-3 py-2 rounded-lg border text-xs text-gray-800",
-        "focus:outline-none focus:border-teal-500 transition-all",
+        "w-full px-3 py-2 rounded-lg border text-xs text-gray-700 cursor-pointer",
+        "focus:outline-none focus:border-teal-600",
         "disabled:bg-gray-50 disabled:text-gray-400",
         error ? "border-red-400 bg-red-50" : "border-gray-300 bg-white",
         className
@@ -284,11 +285,11 @@ export function Select({
 type ButtonVariant = "primary" | "secondary" | "danger" | "ghost" | "outline";
 
 const btnVariants: Record<ButtonVariant, string> = {
-  primary: "bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white cursor-pointer",
-  secondary: "bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-700 cursor-pointer",
-  danger: "bg-red-600 hover:bg-red-500 active:bg-red-700 text-white cursor-pointer",
-  ghost: "hover:bg-gray-100 text-gray-600 hover:text-gray-800 cursor-pointer",
-  outline: "border border-gray-300 hover:bg-gray-50 text-gray-700 cursor-pointer",
+  primary: "bg-teal-600 text-white cursor-pointer",
+  secondary: "bg-gray-100 text-gray-700 cursor-pointer",
+  danger: "bg-red-600 text-white cursor-pointer",
+  ghost: "text-gray-600 cursor-pointer",
+  outline: "border border-gray-300 text-gray-700 cursor-pointer",
 };
 
 export function Button({
@@ -307,8 +308,7 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all",
-        "focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:ring-offset-1",
+        "inline-flex items-center justify-center gap-2 rounded-lg font-medium",
         "disabled:opacity-60 disabled:cursor-not-allowed",
         btnVariants[variant],
         sizeMap[size],
@@ -339,20 +339,20 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-        <Info className="w-7 h-7 text-gray-400" />
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+        <Info className="w-5 h-5 text-gray-400" />
       </div>
-      <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
+      <h3 className="text-xs font-semibold text-gray-700">{title}</h3>
       {description && <p className="text-xs text-gray-400 mt-1 max-w-xs">{description}</p>}
-      {action && <div className="mt-4">{action}</div>}
+      {action && <div className="mt-3">{action}</div>}
     </div>
   );
 }
 
 // ─── LOADING SKELETON ─────────────────────────────────────
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("bg-gray-200 animate-pulse rounded", className)} />;
+  return <div className={cn("bg-gray-100 rounded", className)} />;
 }
 
 // ─── ALERT ────────────────────────────────────────────────
@@ -360,7 +360,7 @@ type AlertType = "info" | "success" | "warning" | "error";
 const alertConfig: Record<AlertType, { icon: ReactNode; classes: string }> = {
   info: { icon: <Info className="w-4 h-4" />, classes: "bg-teal-50 border-teal-200 text-teal-800" },
   success: { icon: <CheckCircle className="w-4 h-4" />, classes: "bg-teal-50 border-teal-200 text-teal-800" },
-  warning: { icon: <AlertTriangle className="w-4 h-4" />, classes: "bg-teal-50 border-teal-200 text-teal-800" },
+  warning: { icon: <AlertTriangle className="w-4 h-4" />, classes: "bg-amber-50 border-amber-200 text-amber-800" },
   error: { icon: <AlertCircle className="w-4 h-4" />, classes: "bg-red-50 border-red-200 text-red-800" },
 };
 
@@ -400,13 +400,13 @@ export function Toaster({ children }: { children: ReactNode }) {
             <div
               key={t.id}
               className={cn(
-                "flex items-start gap-2 p-3 rounded-xl border text-xs",
+                "flex items-start gap-2 p-3 rounded-lg border text-xs",
                 c.classes
               )}
             >
               <span className="shrink-0">{c.icon}</span>
               <span className="flex-1">{t.message}</span>
-              <button onClick={() => remove(t.id)} className="shrink-0 opacity-60 hover:opacity-100 cursor-pointer">
+              <button onClick={() => remove(t.id)} className="shrink-0 opacity-60 cursor-pointer">
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -438,7 +438,7 @@ export function Pagination({
       <button
         disabled={page <= 1}
         onClick={() => onPage(page - 1)}
-        className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 cursor-pointer"
+        className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 text-gray-600 disabled:opacity-40 cursor-pointer"
       >
         Previous
       </button>
@@ -448,7 +448,7 @@ export function Pagination({
       <button
         disabled={page >= totalPages}
         onClick={() => onPage(page + 1)}
-        className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 cursor-pointer"
+        className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 text-gray-600 disabled:opacity-40 cursor-pointer"
       >
         Next
       </button>

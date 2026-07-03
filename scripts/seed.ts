@@ -1,5 +1,14 @@
-const mongoose = require("mongoose");
-require("dotenv").config({ path: ".env.local" });
+import dns from "dns/promises";
+
+dns.setServers([
+  "8.8.8.8",
+  "8.8.4.4"
+]);
+
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+
+dotenv.config({ path: ".env.local" });
 
 const DEFAULT_PERMISSIONS = [
   { module: "patients", action: "view", description: "View patient records" },
@@ -69,7 +78,7 @@ const DEFAULT_PERMISSIONS = [
 
 async function seedPermissions() {
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect(process.env.MONGODB_URI!);
     console.log("Connected to MongoDB");
 
     const Permission = mongoose.model("Permission", new mongoose.Schema({

@@ -181,8 +181,8 @@ export function DoctorsClient() {
             <FormField label="Experience (years)">
               <Input type="number" {...register("experience", { valueAsNumber: true })} placeholder="0" />
             </FormField>
-            <FormField label="Consultation Fee (PKR)">
-              <Input type="number" {...register("consultationFee", { valueAsNumber: true })} placeholder="0" />
+            <FormField label="Consultation Fee (PKR)" required>
+              <Input type="number" {...register("consultationFee", { valueAsNumber: true })} placeholder="0" required />
             </FormField>
           </div>
           <FormField label="Qualifications" hint="Comma separated e.g. MBBS, FCPS">

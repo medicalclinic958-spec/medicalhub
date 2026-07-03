@@ -1,130 +1,115 @@
-/**
- * Clear script — remove all data from the database.
- * Usage: npx ts-node scripts/clear.ts
- *        OR: add to package.json: "clear": "ts-node scripts/clear.ts"
- */
-
 import dns from "dns";
 
 dns.setServers([
     "8.8.8.8",
-    "8.8.4.4"
+    "8.8.4.4",
 ]);
 
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import bcrypt from "bcryptjs";
+
 dotenv.config({ path: ".env" });
 
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_URI = process.env.MONGODB_URI!;
+
 console.log("🔗 Connecting to:", MONGODB_URI);
 
-// ─── SCHEMAS (inline to avoid module issues) ────
+// ───────────────────────────────────────────────
+// Schemas
+// ───────────────────────────────────────────────
 
-const PermissionSchema = new mongoose.Schema({
-    module: String,
-    action: String,
-    description: String,
-});
+const RoleSchema = new mongoose.Schema(
+    {
+        name: String,
+        slug: String,
+        description: String,
+        permissions: [{ type: mongoose.Schema.Types.ObjectId, ref: "Permission" }],
+        isSystem: { type: Boolean, default: false },
+        isActive: { type: Boolean, default: true },
+        createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    },
+    { timestamps: true }
+);
 
-const RoleSchema = new mongoose.Schema({
-    name: String,
-    slug: String,
-    description: String,
-    permissions: [{ type: mongoose.Schema.Types.ObjectId, ref: "Permission" }],
-    isSystem: { type: Boolean, default: false },
-    isActive: { type: Boolean, default: true },
-}, { timestamps: true });
+const UserSchema = new mongoose.Schema(
+    {
+        employeeId: String,
+        firstName: String,
+        lastName: String,
+        email: { type: String, unique: true },
+        password: String,
+        phone: String,
+        role: { type: mongoose.Schema.Types.ObjectId, ref: "Role" },
+        status: { type: String, default: "active" },
+        isSuperAdmin: { type: Boolean, default: false },
+        mustChangePassword: { type: Boolean, default: true },
+    },
+    { timestamps: true }
+);
 
-const UserSchema = new mongoose.Schema({
-    employeeId: String,
-    firstName: String,
-    lastName: String,
-    email: { type: String, unique: true },
-    password: String,
-    phone: String,
-    role: { type: mongoose.Schema.Types.ObjectId, ref: "Role" },
-    status: { type: String, default: "active" },
-    isSuperAdmin: { type: Boolean, default: false },
-}, { timestamps: true });
-
-const DepartmentSchema = new mongoose.Schema({
-    name: String,
-    code: String,
-    description: String,
-    isActive: { type: Boolean, default: true },
-}, { timestamps: true });
-
-const SettingsSchema = new mongoose.Schema({
-    clinicName: String,
-    clinicType: String,
-    phone: String,
-    email: String,
-    currency: { type: String, default: "PKR" },
-}, { timestamps: true });
-
-async function clearDatabase() {
-    console.log("🗑️  Starting database cleanup...");
-
+async function seed() {
     try {
-        await mongoose.connect(MONGODB_URI!);
+        await mongoose.connect(MONGODB_URI);
+
         console.log("✅ Connected to MongoDB");
 
-        // Get all models
-        const Permission = mongoose.models.Permission || mongoose.model("Permission", PermissionSchema);
-        const Role = mongoose.models.Role || mongoose.model("Role", RoleSchema);
-        const User = mongoose.models.User || mongoose.model("User", UserSchema);
-        const Department = mongoose.models.Department || mongoose.model("Department", DepartmentSchema);
-        const Settings = mongoose.models.Settings || mongoose.model("Settings", SettingsSchema);
+        const Role =
+            mongoose.models.Role || mongoose.model("Role", RoleSchema);
 
-        // Get all collection names from mongoose
-        const collections = mongoose.connection.collections;
-        const collectionNames = Object.keys(collections);
+        const User =
+            mongoose.models.User || mongoose.model("User", UserSchema);
 
-        console.log(`\n📊 Found ${collectionNames.length} collections:`);
-        collectionNames.forEach(name => console.log(`   - ${name}`));
+        // Create role if it doesn't exist
+        let role = await Role.findOne({ slug: "super-admin" });
 
-        // Confirm before deleting
-        console.log("\n⚠️  WARNING: This will delete ALL data from ALL collections!");
-        console.log("   Collections to be cleared:");
-        collectionNames.forEach(name => console.log(`   - ${name}`));
+        if (!role) {
+            role = await Role.create({
+                name: "Super Admin",
+                slug: "super-admin",
+                description: "System Super Administrator",
+                isSystem: true,
+                isActive: true,
+            });
 
-        // Auto-confirm with environment variable or force flag
-        const forceClear = process.argv.includes("--force") || process.env.FORCE_CLEAR === "true";
-
-        if (!forceClear) {
-            console.log("\n❌ Please run with --force flag to confirm:");
-            console.log("   npx ts-node scripts/clear.ts --force");
-            console.log("   OR set environment variable: FORCE_CLEAR=true");
-            await mongoose.disconnect();
-            process.exit(0);
+            console.log("✅ Super Admin role created");
+        } else {
+            console.log("ℹ️ Super Admin role already exists");
         }
 
-        console.log("\n🗑️  Clearing all collections...");
+        // Check user
+        const existing = await User.findOne({
+            email: "admin@clinic.com",
+        });
 
-        // Delete all documents from each collection
-        for (const name of collectionNames) {
-            const collection = collections[name];
-            const result = await collection.deleteMany({});
-            console.log(`   ✓ ${name}: ${result.deletedCount} documents deleted`);
+        if (existing) {
+            console.log("ℹ️ Super Admin already exists");
+            return;
         }
 
-        console.log("\n✅ All data cleared successfully!");
+        const password = await bcrypt.hash("Admin@123", 12);
 
-        // Show counts after clearing
-        console.log("\n📊 Verification:");
-        for (const name of collectionNames) {
-            const collection = collections[name];
-            const count = await collection.countDocuments();
-            console.log(`   - ${name}: ${count} documents`);
-        }
+        await User.create({
+            firstName: "Super",
+            lastName: "Admin",
+            email: "admin@clinic.com",
+            password,
+            phone: "03001234567",
+            role: role._id,
+            status: "active",
+            isSuperAdmin: true,
+            mustChangePassword: true,
+        });
 
-    } catch (error) {
-        console.error("❌ Error clearing database:", error);
-        process.exit(1);
+        console.log("\n🎉 Super Admin created!");
+        console.log("Email    : admin@clinic.com");
+        console.log("Password : Admin@123");
+    } catch (err) {
+        console.error("❌ Error:", err);
     } finally {
         await mongoose.disconnect();
-        console.log("\n🔌 Disconnected from MongoDB");
+        console.log("\n🔌 Disconnected");
     }
 }
 
-clearDatabase();
+seed();

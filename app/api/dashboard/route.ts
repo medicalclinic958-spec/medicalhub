@@ -33,6 +33,9 @@ export async function GET(_req: NextRequest) {
     if (doctor) doctorFilter = { doctor: doctor._id };
   }
 
+  // Chart window: last 7 days (including today)
+  const chartStart = startOfDay(new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000));
+
   const [
     totalPatients,
     todayAppointments,
@@ -43,6 +46,7 @@ export async function GET(_req: NextRequest) {
     appointmentsByStatus,
     monthlyRevenue,
     totalStaff,
+    dailyRevenue,
   ] = await Promise.all([
     perms.includes("patients:view") || isSuperAdmin
       ? Patient.countDocuments({ status: "active" })
@@ -88,21 +92,40 @@ export async function GET(_req: NextRequest) {
       ])
       : Promise.resolve([]),
 
+    // Monthly revenue — now based on actual payment dates, not invoice creation date
     perms.includes("billing:view") || isSuperAdmin
       ? Invoice.aggregate([
+        { $unwind: "$payments" },
         {
           $match: {
-            createdAt: { $gte: monthStart, $lte: monthEnd },
-            status: { $in: ["paid", "partial"] },
+            "payments.paidAt": { $gte: monthStart, $lte: monthEnd },
           },
         },
-        { $group: { _id: null, total: { $sum: "$paidAmount" } } },
+        { $group: { _id: null, total: { $sum: "$payments.amount" } } },
       ])
       : Promise.resolve([]),
 
     perms.includes("staff:view") || isSuperAdmin
       ? User.countDocuments({ status: "active" })
       : Promise.resolve(null),
+
+    // Daily revenue for the chart — single aggregation instead of a 7x sequential loop
+    perms.includes("billing:view") || isSuperAdmin
+      ? Invoice.aggregate([
+        { $unwind: "$payments" },
+        {
+          $match: {
+            "payments.paidAt": { $gte: chartStart, $lte: todayEnd },
+          },
+        },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$payments.paidAt" } },
+            revenue: { $sum: "$payments.amount" },
+          },
+        },
+      ])
+      : Promise.resolve([]),
   ]);
 
   // Build appointment status map
@@ -114,30 +137,25 @@ export async function GET(_req: NextRequest) {
     {} as Record<string, number>
   );
 
+  // Build a date -> revenue lookup from the aggregation result
+  const revenueByDate = (dailyRevenue as { _id: string; revenue: number }[]).reduce(
+    (acc, curr) => {
+      acc[curr._id] = curr.revenue;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
   // Revenue chart — last 7 days
   const revenueChart = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    const dayStart = startOfDay(d);
-    const dayEnd = endOfDay(d);
-
-    const dayRevenue =
-      perms.includes("billing:view") || isSuperAdmin
-        ? await Invoice.aggregate([
-          {
-            $match: {
-              createdAt: { $gte: dayStart, $lte: dayEnd },
-              status: { $in: ["paid", "partial"] },
-            },
-          },
-          { $group: { _id: null, total: { $sum: "$paidAmount" } } },
-        ])
-        : [];
+    const dateKey = d.toISOString().split("T")[0];
 
     revenueChart.push({
-      date: d.toISOString().split("T")[0],
-      revenue: dayRevenue[0]?.total || 0,
+      date: dateKey,
+      revenue: revenueByDate[dateKey] || 0,
       expenses: 0, // Can be populated from Expense model
     });
   }

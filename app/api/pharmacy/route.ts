@@ -16,11 +16,13 @@ export async function GET(req: NextRequest) {
   const { page, limit, skip } = getPaginationParams(sp);
   const search = sp.get("search") || "";
   const lowStock = sp.get("lowStock") === "true";
+  const category = sp.get("category");
   const isActive = sp.get("isActive");
   const filter: Record<string, unknown> = {};
   if (isActive !== undefined && isActive !== null && isActive !== "") filter.isActive = isActive === "true";
   if (search) filter.$or = [{ name: { $regex: search, $options: "i" } }, { genericName: { $regex: search, $options: "i" } }];
   if (lowStock) filter.$expr = { $lte: ["$currentStock", "$minStockLevel"] };
+  if (category) filter.category = category;
   const [medicines, total] = await Promise.all([
     Medicine.find(filter).skip(skip).limit(limit).sort({ name: 1 }).lean(),
     Medicine.countDocuments(filter),

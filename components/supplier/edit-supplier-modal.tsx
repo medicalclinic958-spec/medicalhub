@@ -36,7 +36,11 @@ interface Props {
     error: string;
 }
 
-const categoryOptions = ["Antibiotics", "Analgesics", "Antihypertensives", "Antidiabetics", "Vitamins", "Vaccines", "Surgical Items", "Syringes", "Equipment", "Generic Medicines", "Branded Medicines", "OTC"];
+const categoryOptions = [
+    "Antibiotics", "Analgesics", "Antihypertensives", "Antidiabetics",
+    "Vitamins", "Vaccines", "Surgical Items", "Syringes", "Equipment",
+    "Generic Medicines", "Branded Medicines", "OTC"
+];
 
 export function EditSupplierModal({ open, onClose, supplier, onUpdate, isPending, error }: Props) {
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -76,7 +80,7 @@ export function EditSupplierModal({ open, onClose, supplier, onUpdate, isPending
         <Modal open={open} onClose={onClose} title="Edit Supplier" size="lg">
             {error && <Alert type="error">{error}</Alert>}
             <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4 mt-2">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField label="Name" required error={errors.name?.message}>
                         <Input {...register("name")} error={!!errors.name} placeholder="Company or individual name" />
                     </FormField>
@@ -87,7 +91,7 @@ export function EditSupplierModal({ open, onClose, supplier, onUpdate, isPending
                         </Select>
                     </FormField>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField label="Contact Person">
                         <Input {...register("contactPerson")} placeholder="Primary contact" />
                     </FormField>
@@ -95,7 +99,7 @@ export function EditSupplierModal({ open, onClose, supplier, onUpdate, isPending
                         <Input {...register("phone")} error={!!errors.phone} placeholder="+92 300 1234567" />
                     </FormField>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField label="Email">
                         <Input {...register("email")} placeholder="supplier@email.com" />
                     </FormField>
@@ -106,7 +110,7 @@ export function EditSupplierModal({ open, onClose, supplier, onUpdate, isPending
                 <FormField label="Address">
                     <Input {...register("address")} placeholder="Physical address" />
                 </FormField>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField label="Tax ID / NTN">
                         <Input {...register("taxId")} />
                     </FormField>
@@ -114,7 +118,7 @@ export function EditSupplierModal({ open, onClose, supplier, onUpdate, isPending
                         <Input {...register("licenseNumber")} placeholder="Drug supply license" />
                     </FormField>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField label="Website">
                         <Input {...register("website")} placeholder="www.supplier.com" />
                     </FormField>
@@ -130,7 +134,7 @@ export function EditSupplierModal({ open, onClose, supplier, onUpdate, isPending
                         </Select>
                     </FormField>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField label="Bank Name">
                         <Input {...register("bankName")} placeholder="Bank name" />
                     </FormField>
@@ -139,10 +143,13 @@ export function EditSupplierModal({ open, onClose, supplier, onUpdate, isPending
                     </FormField>
                 </div>
                 <FormField label="Categories">
-                    <div className="border border-slate-200 rounded-lg p-2 max-h-40 overflow-y-auto">
+                    <div className="border border-gray-300 rounded-lg p-2 max-h-40 overflow-y-auto">
                         <div className="grid grid-cols-2 gap-1">
                             {categoryOptions.map(cat => (
-                                <label key={cat} className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 rounded cursor-pointer">
+                                <label
+                                    key={cat}
+                                    className="flex items-center gap-2 px-2 py-1 rounded cursor-pointer"
+                                >
                                     <input
                                         type="checkbox"
                                         checked={selectedCategories.includes(cat)}
@@ -153,9 +160,9 @@ export function EditSupplierModal({ open, onClose, supplier, onUpdate, isPending
                                                 setSelectedCategories(selectedCategories.filter(c => c !== cat));
                                             }
                                         }}
-                                        className="rounded"
+                                        className="rounded border-gray-300 cursor-pointer"
                                     />
-                                    <span className="text-sm text-slate-700">{cat}</span>
+                                    <span className="text-xs text-gray-600">{cat}</span>
                                 </label>
                             ))}
                         </div>
@@ -163,12 +170,12 @@ export function EditSupplierModal({ open, onClose, supplier, onUpdate, isPending
                     {selectedCategories.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
                             {selectedCategories.map(c => (
-                                <Badge key={c} variant="outline" className="text-xs">
+                                <Badge key={c} variant="outline">
                                     {c}
                                     <button
                                         type="button"
                                         onClick={() => setSelectedCategories(selectedCategories.filter(x => x !== c))}
-                                        className="ml-1 hover:text-red-500"
+                                        className="ml-1 cursor-pointer"
                                     >
                                         ×
                                     </button>
@@ -186,7 +193,7 @@ export function EditSupplierModal({ open, onClose, supplier, onUpdate, isPending
                         <option value="false">Inactive</option>
                     </Select>
                 </FormField>
-                <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <div className="flex justify-end gap-2 pt-2 border-t border-gray-300">
                     <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
                     <Button type="submit" loading={isPending}>Save Changes</Button>
                 </div>

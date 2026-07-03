@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import axios from "axios";
-import { Plus, Search, Eye } from "lucide-react";
+import { Plus, Search, Eye, EyeOff } from "lucide-react";
 import {
   Card, CardBody, Table, Th, Td, StatusBadge, Button,
   Modal, FormField, Input, Select, EmptyState, Pagination, Alert, Badge,
@@ -28,6 +28,24 @@ interface User {
   createdAt: string;
 }
 
+interface DoctorFormData {
+  specialization: string;
+  department: string;
+  experience: string;
+  consultationFee: string;
+  qualifications: string;
+  bio: string;
+}
+
+const EMPTY_DOCTOR_FORM: DoctorFormData = {
+  specialization: "",
+  department: "",
+  experience: "",
+  consultationFee: "",
+  qualifications: "",
+  bio: "",
+};
+
 export function UsersClient() {
   const { data: session } = useSession();
   const qc = useQueryClient();
@@ -36,6 +54,8 @@ export function UsersClient() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createError, setCreateError] = useState("");
   const [tempPassword, setTempPassword] = useState("");
+  const [doctorData, setDoctorData] = useState<DoctorFormData>(EMPTY_DOCTOR_FORM);
+  const [showPassword, setShowPassword] = useState(false);
 
   const perms = session?.user.permissions || [];
   const isSA = session?.user.isSuperAdmin;
@@ -52,28 +72,85 @@ export function UsersClient() {
     queryFn: () => axios.get("/api/roles").then((r) => r.data),
   });
 
+  const { data: deptData } = useQuery({
+    queryKey: ["departments"],
+    queryFn: () => axios.get("/api/settings/departments").then((r) => r.data),
+    enabled: createOpen,
+  });
+
   const users: User[] = data?.data || [];
   const pagination = data?.pagination;
   const roles = rolesData?.data || [];
+  const departments = deptData?.data || [];
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateUserInput>({
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<CreateUserInput>({
     resolver: zodResolver(createUserSchema),
     defaultValues: { mustChangePassword: true },
   });
 
+  const selectedRoleId = watch("role");
+  const selectedRole = roles.find((r: { _id: string; slug: string }) => r._id === selectedRoleId);
+  const isDoctorRole = selectedRole?.slug === "doctor";
+
+  const resetAll = () => {
+    reset();
+    setDoctorData(EMPTY_DOCTOR_FORM);
+    setCreateError("");
+  };
+
   const createMutation = useMutation({
-    mutationFn: (d: CreateUserInput) => axios.post("/api/users", d),
+    mutationFn: async (d: CreateUserInput) => {
+      const userRes = await axios.post("/api/users", d);
+      const newUser = userRes.data?.data?.user;
+
+      if (isDoctorRole) {
+        if (!doctorData.specialization.trim()) {
+          throw new Error("Specialization is required for the Doctor role");
+        }
+        try {
+          await axios.post("/api/doctors", {
+            user: newUser._id,
+            specialization: doctorData.specialization,
+            department: doctorData.department || undefined,
+            experience: doctorData.experience ? Number(doctorData.experience) : 0,
+            consultationFee: doctorData.consultationFee ? Number(doctorData.consultationFee) : 0,
+            qualifications: doctorData.qualifications
+              ? doctorData.qualifications.split(",").map((q) => q.trim()).filter(Boolean)
+              : [],
+            bio: doctorData.bio || undefined,
+          });
+        } catch (doctorErr) {
+          // User account was created but doctor profile failed - surface that clearly
+          const msg = (doctorErr as { response?: { data?: { error?: string } } })?.response?.data?.error
+            || "Failed to create doctor profile";
+          throw new Error(`User account created, but doctor profile failed: ${msg}`);
+        }
+      }
+
+      return userRes;
+    },
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["users"] });
+      qc.invalidateQueries({ queryKey: ["doctors"] });
       if (res.data.data.tempPassword) setTempPassword(res.data.data.tempPassword);
-      reset();
-      setCreateError("");
+      resetAll();
     },
     onError: (e: unknown) => {
-      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed to create user";
+      const msg = (e as Error)?.message
+        || (e as { response?: { data?: { error?: string } } })?.response?.data?.error
+        || "Failed to create user";
       setCreateError(msg);
     },
   });
+
+  const onSubmit = (d: CreateUserInput) => {
+    setCreateError("");
+    if (isDoctorRole && !doctorData.specialization.trim()) {
+      setCreateError("Specialization is required for the Doctor role");
+      return;
+    }
+    createMutation.mutate(d);
+  };
 
   return (
     <div className="space-y-5">
@@ -175,9 +252,9 @@ export function UsersClient() {
       )}
 
       {/* Create User Modal */}
-      <Modal open={createOpen} onClose={() => { setCreateOpen(false); reset(); setCreateError(""); }} title="Create User">
+      <Modal open={createOpen} onClose={() => { setCreateOpen(false); resetAll(); }} title="Create User" size={isDoctorRole ? "lg" : "md"}>
         {createError && <Alert type="error">{createError}</Alert>}
-        <form onSubmit={handleSubmit((d) => createMutation.mutate(d))} className="space-y-4 mt-2">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-2">
           <div className="grid grid-cols-2 gap-4">
             <FormField label="First Name" required error={errors.firstName?.message}>
               <Input {...register("firstName")} error={!!errors.firstName} />
@@ -200,12 +277,99 @@ export function UsersClient() {
               ))}
             </Select>
           </FormField>
+
+
+          {/* Doctor-specific fields - shown only when Doctor role is selected */}
+          {isDoctorRole && (
+            <div className="border-t border-slate-100 pt-4 space-y-4">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Doctor Profile Details</p>
+
+              <FormField label="Specialization" required>
+                <Input
+                  value={doctorData.specialization}
+                  onChange={(e) => setDoctorData((p) => ({ ...p, specialization: e.target.value }))}
+                  placeholder="e.g. Cardiologist"
+                />
+              </FormField>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Department">
+                  <Select
+                    value={doctorData.department}
+                    onChange={(e) => setDoctorData((p) => ({ ...p, department: e.target.value }))}
+                  >
+                    <option value="">Select department</option>
+                    {departments.map((d: { _id: string; name: string }) => (
+                      <option key={d._id} value={d._id}>{d.name}</option>
+                    ))}
+                  </Select>
+                </FormField>
+                <FormField label="Experience (years)">
+                  <Input
+                    type="number"
+                    value={doctorData.experience}
+                    onChange={(e) => setDoctorData((p) => ({ ...p, experience: e.target.value }))}
+                    placeholder="0"
+                  />
+                </FormField>
+              </div>
+
+              <FormField label="Consultation Fee (PKR)" required>
+                <Input
+                  type="number"
+                  value={doctorData.consultationFee}
+                  onChange={(e) => setDoctorData((p) => ({ ...p, consultationFee: e.target.value }))}
+                  placeholder="0"
+                  required
+                />
+              </FormField>
+
+              <FormField label="Qualifications" hint="Comma separated e.g. MBBS, FCPS">
+                <Input
+                  value={doctorData.qualifications}
+                  onChange={(e) => setDoctorData((p) => ({ ...p, qualifications: e.target.value }))}
+                  placeholder="MBBS, FCPS, MD"
+                />
+              </FormField>
+
+              <FormField label="Bio">
+                <textarea
+                  value={doctorData.bio}
+                  onChange={(e) => setDoctorData((p) => ({ ...p, bio: e.target.value }))}
+                  rows={2}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm text-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </FormField>
+            </div>
+          )}
           <FormField label="Initial Password" error={errors.password?.message} required>
-            <Input type="password" {...register("password")} error={!!errors.password} placeholder="Password" />
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                {...register("password")}
+                error={!!errors.password}
+                placeholder="Password"
+                className="pr-12"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="cursor-pointer absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                {showPassword ? (
+                  <EyeOff className="w-5 h-5 text-teal-500 duration-200" />
+                ) : (
+                  <Eye className="w-5 h-5" />
+                )}
+              </button>
+            </div>
           </FormField>
+
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-            <Button type="button" variant="secondary" onClick={() => { setCreateOpen(false); reset(); }}>Cancel</Button>
-            <Button type="submit" loading={createMutation.isPending}>Create User</Button>
+            <Button type="button" variant="secondary" onClick={() => { setCreateOpen(false); resetAll(); }}>Cancel</Button>
+            <Button type="submit" loading={createMutation.isPending}>
+              {isDoctorRole ? "Create User & Doctor Profile" : "Create User"}
+            </Button>
           </div>
         </form>
       </Modal>

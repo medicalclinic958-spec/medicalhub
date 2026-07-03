@@ -1,15 +1,16 @@
+// app/billing/page.tsx
 "use client";
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { useRouter } from "next/navigation";
-import { Plus, Search, DollarSign, FileText, Calendar, Filter } from "lucide-react";
+import { Plus, Search, DollarSign, FileText, Filter, ChevronDown, X } from "lucide-react";
 import {
-  Card, CardBody, Table, Th, Td, StatusBadge,
-  Button, Input, Select, EmptyState, Pagination, StatCard, Badge,
+  Card, Table, Th, Td, StatusBadge,
+  Button, Select, EmptyState, Pagination, StatCard, Badge,
 } from "@/components/ui";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { useSession } from "next-auth/react";
 
 interface Invoice {
@@ -33,16 +34,19 @@ export function BillingClient() {
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const perms = session?.user.permissions || [];
   const isSA = session?.user.isSuperAdmin;
   const canCreate = isSA || perms.includes("billing:create");
 
+  const activeFiltersCount = [statusFilter, typeFilter].filter(Boolean).length;
+
   const { data, isLoading } = useQuery({
     queryKey: ["invoices", page, statusFilter, typeFilter, search],
     queryFn: () =>
       axios.get("/api/invoice", {
-        params: { page, limit: 20, status: statusFilter, invoiceType: typeFilter, search }
+        params: { page, limit: 20, status: statusFilter || undefined, invoiceType: typeFilter || undefined, search: search || undefined }
       }).then((r) => r.data),
   });
 
@@ -54,7 +58,7 @@ export function BillingClient() {
 
   const typeLabel = (type: string) => {
     const labels: Record<string, string> = {
-      opd_consultation: "OPD/Consultation",
+      opd_consultation: "OPD Consultation",
       pharmacy_sale: "Pharmacy Sale",
       lab: "Lab Test",
       procedure: "Procedure",
@@ -63,59 +67,125 @@ export function BillingClient() {
     return labels[type] || type;
   };
 
-  console.log(invoices)
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Billing & Invoices</h1>
-          <p className="text-sm text-slate-500">{pagination?.total ?? 0} invoices</p>
+          <h1 className="text-lg font-semibold text-gray-900">Billing & Invoices</h1>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {pagination?.total ?? 0} invoice{pagination?.total !== 1 ? "s" : ""}
+          </p>
         </div>
         {canCreate && (
-          <Button onClick={() => router.push("/billing/new")}>
-            <Plus className="w-4 h-4" /> Create Invoice
+          <Button onClick={() => router.push("/billing/new")} size="sm">
+            <Plus className="w-3.5 h-3.5" /> Create Invoice
           </Button>
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <StatCard title="Total Invoices" value={pagination?.total ?? 0} icon={FileText} color="blue" loading={isLoading} />
-        <StatCard title="Collected (Page)" value={formatCurrency(totalRevenue)} icon={DollarSign} color="emerald" loading={isLoading} />
-        <StatCard title="Outstanding (Page)" value={formatCurrency(totalPending)} icon={DollarSign} color="amber" loading={isLoading} />
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <StatCard title="Total Invoices" value={pagination?.total ?? 0} icon={FileText} loading={isLoading} />
+        <StatCard title="Collected" value={formatCurrency(totalRevenue)} icon={DollarSign} loading={isLoading} />
+        <StatCard title="Outstanding" value={formatCurrency(totalPending)} icon={DollarSign} loading={isLoading} />
       </div>
 
-      <Card>
-        <CardBody className="py-3">
-          <div className="flex flex-wrap gap-3 items-center">
-            <div className="relative flex-1 min-w-48">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                placeholder="Search invoice number & patient name..."
-                value={search}
-                onChange={e => { setSearch(e.target.value); setPage(1); }}
-                className="pl-9"
-              />
-            </div>
-            <Select value={typeFilter} onChange={e => { setTypeFilter(e.target.value); setPage(1); }} className="w-44">
-              <option value="">All types</option>
-              <option value="opd_consultation">OPD/Consultation</option>
-              <option value="pharmacy_sale">Pharmacy Sale</option>
-              <option value="other">Other</option>
-            </Select>
-            <Select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="w-40">
-              <option value="">All statuses</option>
-              <option value="draft">Draft</option>
-              <option value="pending">Pending</option>
-              <option value="paid">Paid</option>
-              <option value="partial">Partial</option>
-              <option value="overdue">Overdue</option>
-              <option value="cancelled">Cancelled</option>
-            </Select>
-          </div>
-        </CardBody>
-      </Card>
+      {/* Search + Filter Toggle */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by invoice number or patient name..."
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(1); }}
+            className="w-full pl-9 pr-4 py-2 text-xs rounded-lg border border-gray-300 
+                       bg-white placeholder:text-gray-400 text-gray-600
+                       focus:outline-none focus:border-teal-600"
+          />
+        </div>
+        <button
+          onClick={() => setFiltersOpen(!filtersOpen)}
+          className={cn(
+            "inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border cursor-pointer shrink-0",
+            filtersOpen || activeFiltersCount > 0
+              ? "bg-teal-600 text-white border-teal-600"
+              : "bg-white border-gray-300 text-gray-600"
+          )}
+        >
+          <Filter className="w-3.5 h-3.5" />
+          Filters
+          {activeFiltersCount > 0 && (
+            <span className="bg-white text-teal-600 text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-semibold">
+              {activeFiltersCount}
+            </span>
+          )}
+          <ChevronDown className={cn("w-3 h-3", filtersOpen && "rotate-180")} />
+        </button>
+      </div>
 
-      <Card>
+      {/* Active Filter Chips */}
+      {activeFiltersCount > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {typeFilter && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-200 text-xs text-teal-700">
+              {typeLabel(typeFilter)}
+              <button onClick={() => { setTypeFilter(""); setPage(1); }} className="cursor-pointer">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {statusFilter && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-200 text-xs text-teal-700 capitalize">
+              {statusFilter}
+              <button onClick={() => { setStatusFilter(""); setPage(1); }} className="cursor-pointer">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          <button
+            onClick={() => { setTypeFilter(""); setStatusFilter(""); setPage(1); }}
+            className="text-xs text-gray-400 cursor-pointer"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
+
+      {/* Expanded Filters */}
+      {filtersOpen && (
+        <div className="bg-gray-50 rounded-lg border border-gray-300 p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Type</label>
+              <Select value={typeFilter} onChange={e => { setTypeFilter(e.target.value); setPage(1); }}>
+                <option value="">All Types</option>
+                <option value="opd_consultation">OPD Consultation</option>
+                <option value="pharmacy_sale">Pharmacy Sale</option>
+                <option value="lab">Lab Test</option>
+                <option value="procedure">Procedure</option>
+                <option value="other">Other</option>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Status</label>
+              <Select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
+                <option value="">All Statuses</option>
+                <option value="draft">Draft</option>
+                <option value="pending">Pending</option>
+                <option value="paid">Paid</option>
+                <option value="partial">Partial</option>
+                <option value="overdue">Overdue</option>
+                <option value="cancelled">Cancelled</option>
+              </Select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Desktop Table */}
+      <Card className="hidden md:block overflow-x-auto">
         <Table>
           <thead>
             <tr>
@@ -133,36 +203,59 @@ export function BillingClient() {
           <tbody>
             {isLoading ? (
               [...Array(8)].map((_, i) => (
-                <tr key={i}>{[...Array(9)].map((_, j) => (
-                  <Td key={j}><div className="h-4 bg-slate-100 rounded animate-pulse" /></Td>
-                ))}</tr>
+                <tr key={i}>
+                  {[...Array(9)].map((_, j) => (
+                    <Td key={j}><div className="h-4 bg-gray-100 rounded" /></Td>
+                  ))}
+                </tr>
               ))
             ) : invoices.length === 0 ? (
-              <tr><td colSpan={9}><EmptyState title="No invoices found" description="Create a new invoice to get started." action={canCreate ? <Button size="sm" onClick={() => router.push("/billing/new")}><Plus className="w-3.5 h-3.5" /> New Invoice</Button> : undefined} /></td></tr>
+              <tr>
+                <td colSpan={9}>
+                  <EmptyState
+                    title="No invoices found"
+                    description="Try adjusting your filters or create a new invoice"
+                    action={canCreate ? (
+                      <Button size="sm" onClick={() => router.push("/billing/new")}>
+                        <Plus className="w-3.5 h-3.5" /> New Invoice
+                      </Button>
+                    ) : undefined}
+                  />
+                </td>
+              </tr>
             ) : (
               invoices.map((inv) => (
-                <tr key={inv._id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => router.push(`/billing/${inv._id}`)}>
-                  <Td><span className="font-mono text-xs font-semibold text-blue-600">{inv.invoiceNumber}</span></Td>
+                <tr key={inv._id} className="cursor-pointer" onClick={() => router.push(`/billing/${inv._id}`)}>
+                  <Td>
+                    <span className="font-medium text-gray-900">{inv.invoiceNumber}</span>
+                  </Td>
                   <Td><Badge variant="outline">{typeLabel(inv.invoiceType)}</Badge></Td>
                   <Td>
                     {inv.patient ? (
-                      <>
-                        <div className="text-xs font-medium text-slate-800">{inv.patient.firstName + ' ' + inv.patient.lastName}</div>
-                        <div className="text-xs text-slate-400">{inv.patient.patientId}</div>
-                      </>
+                      <div>
+                        <div className="text-xs font-medium text-gray-900">
+                          {inv.patient.firstName} {inv.patient.lastName}
+                        </div>
+                        <div className="text-xs text-gray-400">{inv.patient.patientId}</div>
+                      </div>
                     ) : inv.patientName ? (
-                      <div className="font-medium text-slate-800">{inv.patientName}</div>
-                    ) : "—"}
+                      <div className="text-xs font-medium text-gray-900">{inv.patientName}</div>
+                    ) : (
+                      <span className="text-gray-300">—</span>
+                    )}
                   </Td>
-                  <Td className="font-medium">{formatCurrency(inv.total)}</Td>
-                  <Td className="text-emerald-600">{formatCurrency(inv.paidAmount)}</Td>
-                  <Td className={inv.balanceDue > 0 ? "text-red-500 font-medium" : "text-slate-400"}>
+                  <Td className="font-semibold text-gray-700">{formatCurrency(inv.total)}</Td>
+                  <Td className="text-teal-600 font-medium">{formatCurrency(inv.paidAmount)}</Td>
+                  <Td className={cn("font-medium", inv.balanceDue > 0 ? "text-red-500" : "text-gray-400")}>
                     {formatCurrency(inv.balanceDue)}
                   </Td>
                   <Td><StatusBadge status={inv.status} /></Td>
-                  <Td className="text-slate-400 text-sm">{formatDate(inv.createdAt)}</Td>
+                  <Td className="text-gray-400">{formatDate(inv.createdAt)}</Td>
                   <Td>
-                    <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); router.push(`/billing/${inv._id}`); }}>
+                    <Button
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); router.push(`/billing/${inv._id}`); }}
+                    >
                       View
                     </Button>
                   </Td>
@@ -172,11 +265,71 @@ export function BillingClient() {
           </tbody>
         </Table>
         {pagination && pagination.totalPages > 1 && (
-          <div className="px-4 py-3 border-t border-slate-100 flex justify-end">
+          <div className="px-4 py-3 border-t border-gray-300 flex justify-end">
             <Pagination page={page} totalPages={pagination.totalPages} onPage={setPage} />
           </div>
         )}
       </Card>
+
+      {/* Mobile Cards */}
+      <div className="md:hidden divide-y divide-gray-100 border border-gray-300 rounded-lg bg-white">
+        {isLoading ? (
+          [...Array(5)].map((_, i) => (
+            <div key={i} className="p-3 flex items-center justify-between">
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-100 rounded w-28" />
+                <div className="h-3 bg-gray-100 rounded w-20" />
+              </div>
+              <div className="h-7 bg-gray-100 rounded w-14" />
+            </div>
+          ))
+        ) : invoices.length === 0 ? (
+          <EmptyState
+            title="No invoices found"
+            description="Try adjusting your filters"
+            action={canCreate ? (
+              <Button size="sm" onClick={() => router.push("/billing/new")}>
+                <Plus className="w-3.5 h-3.5" /> New Invoice
+              </Button>
+            ) : undefined}
+          />
+        ) : (
+          invoices.map((inv) => (
+            <div
+              key={inv._id}
+              className="flex items-center justify-between p-3 gap-2 cursor-pointer"
+              onClick={() => router.push(`/billing/${inv._id}`)}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-900">{inv.invoiceNumber}</span>
+                  <StatusBadge status={inv.status} />
+                </div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xs text-gray-500">
+                    {inv.patient
+                      ? `${inv.patient.firstName} ${inv.patient.lastName}`
+                      : inv.patientName || "—"}
+                  </span>
+                  <span className="text-xs text-gray-400">•</span>
+                  <span className="text-xs font-medium text-gray-700">{formatCurrency(inv.total)}</span>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={(e) => { e.stopPropagation(); router.push(`/billing/${inv._id}`); }}
+              >
+                View
+              </Button>
+            </div>
+          ))
+        )}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="px-4 py-3 flex justify-center">
+            <Pagination page={page} totalPages={pagination.totalPages} onPage={setPage} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

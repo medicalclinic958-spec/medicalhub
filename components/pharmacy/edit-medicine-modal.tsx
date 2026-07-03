@@ -181,7 +181,7 @@ export function EditMedicineModal({ open, onClose, medicine, onUpdate, isPending
                             <button
                                 type="button"
                                 onClick={() => setScannerOpen(true)}
-                                className="flex items-center gap-1.5 text-sm text-teal-700 hover:text-teal-800 font-medium whitespace-nowrap px-2 py-2"
+                                className="cursor-pointer flex items-center gap-1.5 text-sm text-teal-700 hover:text-teal-800 font-medium whitespace-nowrap px-2 py-2"
                             >
                                 <Camera className="w-4 h-4" />
                                 {barcodeValue ? "Edit Barcode" : "Add Barcode"}
