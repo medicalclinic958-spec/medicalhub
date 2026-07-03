@@ -12,8 +12,10 @@ import {
   PersonStanding,
   Sparkles,
   Hospital,
+  X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useSidebar } from "../sidebar-context";
 
 interface NavItem {
   label: string;
@@ -57,8 +59,8 @@ interface SidebarProps {
 
 export function Sidebar({ session }: SidebarProps) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
+  const { mobileOpen, setMobileOpen } = useSidebar();
+  const [collapsed, setCollapsed] = useState(false);
   const perms = session.user.permissions || [];
   const isSuperAdmin = session.user.isSuperAdmin;
 
@@ -76,56 +78,57 @@ export function Sidebar({ session }: SidebarProps) {
     return acc;
   }, {} as Record<string, NavItem[]>);
 
-  useEffect(() => {
-    const handleResize = () => {
-      const mobile = window.innerWidth < 768;
-      setIsMobile(mobile);
-      setCollapsed(mobile ? true : false);
-    };
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  const toggleSidebar = () => {
-    setCollapsed(!collapsed);
-  };
-
+  const toggleSidebar = () => setCollapsed(!collapsed);
   const categories = Object.keys(groupedItems);
+  const showLabels = !collapsed || mobileOpen;
 
   return (
     <>
-      {/* Mobile overlay */}
-      {isMobile && !collapsed && (
+      {/* Mobile backdrop - click to close */}
+      {mobileOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-[90]"
-          onClick={() => setCollapsed(true)}
+          className="fixed inset-0 bg-black/50 z-90 md:hidden"
+          onClick={() => setMobileOpen(false)}
         />
       )}
 
       <aside
         className={cn(
-          "bg-white border-r border-gray-300 flex flex-col transition-all duration-200 shrink-0 h-screen",
-          isMobile && !collapsed
-            ? "fixed top-0 left-0 z-[100] w-54"
-            : cn("relative", collapsed ? "w-16" : "w-54")
+          "bg-white border-r border-gray-300 flex flex-col shrink-0 h-screen transition-transform duration-200 ease-in-out",
+          // Mobile: fixed off-canvas drawer, fully hidden unless opened
+          "fixed top-0 left-0 z-100 w-64",
+          mobileOpen ? "translate-x-0" : "-translate-x-full",
+          // Desktop (md+): in normal flow, always visible, width driven by collapsed state
+          "md:static md:translate-x-0 md:z-auto",
+          collapsed ? "md:w-16" : "md:w-54"
         )}
       >
         {/* Brand */}
-        <div className="flex items-center gap-3 px-4 py-5 border-b border-gray-300">
+        <div className="flex items-center gap-3 px-4 py-5 border-b border-gray-300 relative">
           <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center shrink-0">
             <Hospital className="w-5 h-5 text-white" />
           </div>
-          {!collapsed && (
-            <div className="overflow-hidden">
+          {showLabels && (
+            <div className="overflow-hidden flex-1">
               <p className="font-semibold text-sm text-gray-900 leading-tight">ClinicHMS</p>
               <p className="text-xs text-gray-500 truncate">Management System</p>
             </div>
           )}
+
+          {/* Close button - mobile drawer only */}
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="md:hidden p-1.5 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
+            aria-label="Close sidebar"
+          >
+            <X className="w-4 h-4" />
+          </button>
+
+          {/* Collapse toggle - desktop only */}
           <button
             onClick={toggleSidebar}
             className={cn(
-              "absolute right-[-12px] bottom-[13px] p-1 rounded-full bg-teal-600 border border-teal-600 text-white hover:text-teal-600 hover:bg-white hover:border-teal-600 transition-all shadow-sm z-10 cursor-pointer",
+              "hidden md:flex absolute -right-3 -bottom-3 p-1 rounded-full bg-teal-600 border border-teal-600 text-white hover:text-teal-600 hover:bg-white hover:border-teal-600 transition-all shadow-sm z-10 cursor-pointer",
               collapsed && "rotate-180"
             )}
           >
@@ -137,12 +140,12 @@ export function Sidebar({ session }: SidebarProps) {
         <nav className="flex-1 overflow-y-auto py-4 px-2">
           {Object.entries(groupedItems).map(([category, items], index) => (
             <div key={category}>
-              {!collapsed && (
+              {showLabels && (
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 pb-1.5">
                   {category}
                 </p>
               )}
-              {collapsed && index !== 0 && (
+              {!showLabels && index !== 0 && (
                 <div className="border-t border-gray-300 mb-1 mx-3" />
               )}
               <div className={cn("space-y-0.5", index !== categories.length - 1 && "mb-3")}>
@@ -151,8 +154,8 @@ export function Sidebar({ session }: SidebarProps) {
                     key={item.href}
                     item={item}
                     isActive={isActive(item.href)}
-                    collapsed={collapsed}
-                    onClick={() => isMobile && setCollapsed(true)}
+                    collapsed={!showLabels}
+                    onClick={() => setMobileOpen(false)}
                   />
                 ))}
               </div>

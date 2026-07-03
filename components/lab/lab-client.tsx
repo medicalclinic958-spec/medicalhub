@@ -174,7 +174,6 @@ export function LabClient() {
               <tr>
                 <td colSpan={8}>
                   <EmptyState
-                    icon={<FlaskConical className="w-10 h-10 text-slate-300" />}
                     title="No lab tests"
                     action={canCreate ? (
                       <Button size="sm" onClick={() => setCreateOpen(true)}>
@@ -195,7 +194,7 @@ export function LabClient() {
                     <div className="text-xs text-slate-400">{t.patient?.patientId}</div>
                   </Td>
                   <Td>
-                    <div className="text-xs max-w-[200px] truncate">
+                    <div className="text-xs max-w-50 truncate">
                       {t.tests?.map(x => x.testName).join(", ")}
                     </div>
                   </Td>

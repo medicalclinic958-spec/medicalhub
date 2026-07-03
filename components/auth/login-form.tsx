@@ -89,7 +89,7 @@ export function LoginForm() {
   return (
     <div className="min-h-screen flex flex-col lg:flex-row relative overflow-hidden bg-white">
       {/* Left Section with Background - Hidden on mobile */}
-      <div className="hidden lg:flex lg:w-[55%] relative bg-gradient-to-br from-teal-800 via-teal-700 to-teal-900 min-h-screen">
+      <div className="hidden lg:flex lg:w-[55%] relative bg-linear-to-br from-teal-800 via-teal-700 to-teal-900 min-h-screen">
         {/* Background Image with Overlay */}
         <div className="absolute inset-0">
           <Image
@@ -158,7 +158,7 @@ export function LoginForm() {
         {/* Diagonal Cut - Creates the "/" shape */}
         <div className="absolute right-0 top-0 bottom-0 w-24 lg:w-32 z-20">
           <div
-            className="absolute inset-0 bg-gradient-to-br from-gray-50 to-white"
+            className="absolute inset-0 bg-linear-to-br from-gray-50 to-white"
             style={{
               clipPath: 'polygon(100% 0, 0 0, 100% 100%)'
             }}
@@ -167,7 +167,7 @@ export function LoginForm() {
       </div>
 
       {/* Right Section - Login Form */}
-      <div className="w-full lg:w-[45%] flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-gradient-to-br from-gray-50 to-white min-h-screen">
+      <div className="w-full lg:w-[45%] flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-linear-to-br from-gray-50 to-white min-h-screen">
         <div className="w-full max-w-md">
           {/* Mobile Logo - Visible only on mobile */}
           <div className="lg:hidden flex flex-col items-center mb-8">

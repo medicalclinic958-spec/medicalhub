@@ -3,18 +3,38 @@
 import { useState } from "react";
 import { Session } from "next-auth";
 import { signOut } from "next-auth/react";
-import { LogOut, ChevronDown, User2, User, UserCircle } from "lucide-react";
+import { LogOut, ChevronDown, UserCircle, Menu, Hospital } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { NotificationsPanel } from "./notifications-panel";
+import { useSidebar } from "../sidebar-context";
+
 
 interface HeaderProps { session: Session }
 
 export function Header({ session }: HeaderProps) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const { toggleMobile } = useSidebar();
 
   return (
-    <header className="h-14 bg-white border-b border-gray-200 flex items-center px-6 gap-4 shrink-0 z-10">
+    <header className="h-14 bg-white border-b border-gray-200 flex items-center px-4 sm:px-6 gap-3 shrink-0 z-10">
+      {/* Hamburger - mobile only, opens sidebar drawer */}
+      <button
+        onClick={toggleMobile}
+        className="md:hidden p-2 -ml-2 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-50 transition-all cursor-pointer shrink-0"
+        aria-label="Open sidebar"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
+
+      {/* Logo + text - small screens only, hidden md and up (sidebar shows it there) */}
+      <div className="flex items-center gap-2 md:hidden">
+        <div className="w-7 h-7 rounded-lg bg-teal-600 flex items-center justify-center shrink-0">
+          <Hospital className="w-4 h-4 text-white" />
+        </div>
+        <span className="font-semibold text-sm text-gray-900 whitespace-nowrap">ClinicHMS</span>
+      </div>
+
       <div className="flex-1" />
 
       {/* Notifications */}
