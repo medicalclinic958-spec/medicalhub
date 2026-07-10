@@ -4,11 +4,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
-import { Plus, AlertTriangle, Search, X, ScanLine, Loader2, Barcode as BarcodeIcon } from "lucide-react";
-import { Card, CardHeader, CardBody, Button, FormField, Input, Select, Modal, Alert } from "@/components/ui";
-import { formatCurrency } from "@/lib/utils";
+import { Plus, AlertTriangle, Search, X, ScanLine, Loader2, Barcode as BarcodeIcon, Camera, PenLine } from "lucide-react";
+import { Card, CardBody, Button, FormField, Input, Select, Modal, Alert } from "@/components/ui";
+import { formatCurrency, cn } from "@/lib/utils";
 import { UseFormSetValue } from "react-hook-form";
 import { Html5Qrcode } from "html5-qrcode";
+import { toast } from "sonner";
 
 interface LineItem {
     description: string;
@@ -44,6 +45,7 @@ export function PharmacySaleSection({ watchedItems, setValue, register }: Props)
     const [scannerStarting, setScannerStarting] = useState(false);
     const [scannerError, setScannerError] = useState("");
     const [checkingBarcode, setCheckingBarcode] = useState(false);
+    const [cameraPermissionDenied, setCameraPermissionDenied] = useState(false);
     const scannerRef = useRef<Html5Qrcode | null>(null);
 
     const { data: medicinesData } = useQuery({
@@ -60,7 +62,6 @@ export function PharmacySaleSection({ watchedItems, setValue, register }: Props)
     const patients = patientsData?.data || [];
     const selectedMedicineData = medicines.find((m: any) => m._id === selectedMedicine);
 
-    // Track local stock changes
     const [stockAdjustments, setStockAdjustments] = useState<Record<string, number>>({});
 
     const getAvailableStock = (medicineId: string, originalStock: number) => {
@@ -68,20 +69,16 @@ export function PharmacySaleSection({ watchedItems, setValue, register }: Props)
         return originalStock - adjustment;
     };
 
-    // Filter medicines based on search term
     const filteredMedicines = medicines.filter((m: any) => {
         const available = getAvailableStock(m._id, m.currentStock);
         if (available === 0) return false;
-
         const searchLower = searchTerm.toLowerCase();
         return (
             m.name.toLowerCase().includes(searchLower) ||
-            m.genericName.toLowerCase().includes(searchLower) ||
-            (m.brandName && m.brandName.toLowerCase().includes(searchLower))
+            m.genericName.toLowerCase().includes(searchLower)
         );
     });
 
-    // Handle click outside to close dropdown
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
@@ -92,12 +89,10 @@ export function PharmacySaleSection({ watchedItems, setValue, register }: Props)
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // Reset highlighted index when filtered results change
     useEffect(() => {
         setHighlightedIndex(-1);
     }, [filteredMedicines]);
 
-    // Handle keyboard navigation
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (!isDropdownOpen) {
             if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -106,13 +101,10 @@ export function PharmacySaleSection({ watchedItems, setValue, register }: Props)
             }
             return;
         }
-
         switch (e.key) {
             case "ArrowDown":
                 e.preventDefault();
-                setHighlightedIndex(prev =>
-                    prev < filteredMedicines.length - 1 ? prev + 1 : prev
-                );
+                setHighlightedIndex(prev => prev < filteredMedicines.length - 1 ? prev + 1 : prev);
                 break;
             case "ArrowUp":
                 e.preventDefault();
@@ -121,8 +113,7 @@ export function PharmacySaleSection({ watchedItems, setValue, register }: Props)
             case "Enter":
                 e.preventDefault();
                 if (highlightedIndex >= 0 && highlightedIndex < filteredMedicines.length) {
-                    const selected = filteredMedicines[highlightedIndex];
-                    handleSelectMedicine(selected);
+                    handleSelectMedicine(filteredMedicines[highlightedIndex]);
                 }
                 break;
             case "Escape":
@@ -142,14 +133,12 @@ export function PharmacySaleSection({ watchedItems, setValue, register }: Props)
 
     const addMedicineItem = () => {
         if (!selectedMedicineData) return;
-
         const available = getAvailableStock(selectedMedicine, selectedMedicineData.currentStock);
 
         if (medicineQty < 1) {
             setMedicineError("Quantity must be at least 1");
             return;
         }
-
         if (medicineQty > available) {
             setMedicineError(`Only ${available} in stock`);
             return;
@@ -211,13 +200,9 @@ export function PharmacySaleSection({ watchedItems, setValue, register }: Props)
         if (scannerRef.current) {
             try {
                 const state = scannerRef.current.getState();
-                if (state === 2 /* SCANNING */) {
-                    await scannerRef.current.stop();
-                }
+                if (state === 2) await scannerRef.current.stop();
                 scannerRef.current.clear();
-            } catch {
-                // already stopped — ignore
-            }
+            } catch { /* ignore */ }
             scannerRef.current = null;
         }
     }, []);
@@ -225,13 +210,11 @@ export function PharmacySaleSection({ watchedItems, setValue, register }: Props)
     const handleScanSuccess = useCallback(async (decodedText: string) => {
         if (checkingBarcode) return;
         await stopScanner();
-
         const code = decodedText.trim();
         setCheckingBarcode(true);
         setScannerError("");
 
         try {
-            // Try local list first (already loaded, avoids extra request)
             const local = medicines.find((m: any) => m.barcode === code);
             if (local) {
                 const available = getAvailableStock(local._id, local.currentStock);
@@ -243,11 +226,8 @@ export function PharmacySaleSection({ watchedItems, setValue, register }: Props)
                 setScannerOpen(false);
                 return;
             }
-
-            // Fall back to API lookup in case medicine list is stale/paginated
             const res = await axios.get("/api/pharmacy/barcode", { params: { barcode: code } });
             const result = res.data?.data;
-
             if (result?.status === "found" && result.medicine) {
                 const m = result.medicine;
                 const available = getAvailableStock(m._id, m.currentStock);
@@ -268,102 +248,114 @@ export function PharmacySaleSection({ watchedItems, setValue, register }: Props)
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [checkingBarcode, medicines, stockAdjustments, stopScanner]);
 
+    // --- Start camera when scanner opens ---
     useEffect(() => {
         if (!scannerOpen) {
-            stopScanner();
             return;
         }
 
-        let cancelled = false;
-        setScannerError("");
-        setScannerStarting(true);
+        const timer = setTimeout(() => {
+            const el = document.getElementById(SCANNER_ELEMENT_ID);
+            if (!el) {
+                setCameraPermissionDenied(true);
+                setScannerError("Scanner element not found. Please try again.");
+                return;
+            }
 
-        const instance = new Html5Qrcode(SCANNER_ELEMENT_ID);
-        scannerRef.current = instance;
+            setScannerError("");
+            setCameraPermissionDenied(false);
+            setScannerStarting(true);
 
-        instance
-            .start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 260, height: 160 } },
-                (decodedText) => handleScanSuccess(decodedText),
-                () => { /* per-frame miss — expected, ignore */ }
-            )
-            .then(() => {
-                if (!cancelled) setScannerStarting(false);
-            })
-            .catch(() => {
-                if (!cancelled) {
+            const instance = new Html5Qrcode(SCANNER_ELEMENT_ID);
+            scannerRef.current = instance;
+
+            instance
+                .start(
+                    { facingMode: "environment" },
+                    { fps: 10, qrbox: { width: 260, height: 160 } },
+                    (decodedText) => handleScanSuccess(decodedText),
+                    () => { /* ignore */ }
+                )
+                .then(() => {
                     setScannerStarting(false);
-                    setScannerError("Camera access failed. Check permissions and try again.");
-                }
-            });
+                })
+                .catch(() => {
+                    setScannerStarting(false);
+                    setCameraPermissionDenied(true);
+                });
+        }, 100);
 
         return () => {
-            cancelled = true;
+            clearTimeout(timer);
             stopScanner();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [scannerOpen]);
 
+    // --- Cleanup on unmount ---
+    useEffect(() => {
+        return () => {
+            stopScanner();
+        };
+    }, [stopScanner]);
+
     const closeScanner = () => {
         setScannerOpen(false);
         setScannerError("");
+        setCameraPermissionDenied(false);
     };
 
     return (
         <Card>
-            <CardHeader><h3 className="font-semibold text-slate-700 dark:text-slate-200">Add Medicines</h3></CardHeader>
             <CardBody>
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
-                    <div className="md:col-span-2 relative" ref={searchRef}>
+                <h3 className="text-xs font-semibold text-gray-900 mb-3">Add Medicines</h3>
+
+                <div className="flex flex-col sm:flex-row gap-3 items-end">
+                    <div className="flex-1 relative" ref={searchRef}>
                         <FormField label="Search Medicine">
-                            <div className="relative flex items-center gap-2">
+                            <div className="flex items-center gap-2">
                                 <div className="relative flex-1">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Search className="h-4 w-4 text-slate-400" />
-                                    </div>
-                                    <Input
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                    <input
                                         ref={inputRef}
                                         type="text"
-                                        placeholder="Search by name, generic name, or brand..."
+                                        placeholder="Search by name or generic name..."
                                         value={searchTerm}
                                         onChange={(e) => {
                                             setSearchTerm(e.target.value);
                                             setIsDropdownOpen(true);
-                                            if (e.target.value === "") {
-                                                setSelectedMedicine("");
-                                            }
+                                            if (e.target.value === "") setSelectedMedicine("");
                                             setMedicineError("");
                                         }}
                                         onFocus={() => setIsDropdownOpen(true)}
                                         onKeyDown={handleKeyDown}
-                                        className="pl-9 pr-8 w-full"
+                                        className="w-full pl-9 pr-8 py-2 text-xs rounded-lg border border-gray-300 
+                                                   bg-white placeholder:text-gray-400 text-gray-600
+                                                   focus:outline-none focus:border-teal-600"
                                     />
                                     {searchTerm && (
                                         <button
                                             type="button"
                                             onClick={clearSearch}
-                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 cursor-pointer"
                                         >
-                                            <X className="h-4 w-4" />
+                                            <X className="w-3.5 h-3.5" />
                                         </button>
                                     )}
                                 </div>
-
                                 <button
                                     type="button"
                                     onClick={() => setScannerOpen(true)}
-                                    title="Scan barcode"
-                                    className="shrink-0 flex items-center justify-center w-10 h-10 rounded-lg border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 hover:border-teal-300 transition-colors"
+                                    className="shrink-0 p-2 rounded-lg border border-gray-300 text-gray-500 cursor-pointer"
                                 >
                                     <ScanLine className="w-4 h-4" />
                                 </button>
                             </div>
                         </FormField>
 
-                        {/* Dropdown results */}
+                        {/* Dropdown */}
                         {isDropdownOpen && filteredMedicines.length > 0 && (
-                            <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg max-h-56 overflow-y-auto">
                                 {filteredMedicines.map((medicine: any, index: number) => {
                                     const available = getAvailableStock(medicine._id, medicine.currentStock);
                                     return (
@@ -371,154 +363,95 @@ export function PharmacySaleSection({ watchedItems, setValue, register }: Props)
                                             key={medicine._id}
                                             type="button"
                                             onClick={() => handleSelectMedicine(medicine)}
-                                            className={`w-full text-left px-4 py-2 hover:bg-teal-50 dark:hover:bg-slate-700 transition-colors ${index === highlightedIndex ? 'bg-teal-50 dark:bg-slate-700' : ''
-                                                }`}
+                                            className={cn(
+                                                "w-full text-left px-3 py-2 cursor-pointer",
+                                                index === highlightedIndex ? "bg-teal-50" : ""
+                                            )}
                                         >
-                                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
+                                            <div className="flex items-center justify-between">
                                                 <div>
-                                                    <span className="font-medium text-slate-700 dark:text-slate-200">
-                                                        {medicine.name}
-                                                    </span>
-                                                    <span className="text-xs text-slate-500 dark:text-slate-400 ml-2">
-                                                        {medicine.genericName}
-                                                    </span>
+                                                    <span className="text-xs font-medium text-gray-900">{medicine.name}</span>
+                                                    <span className="text-xs text-gray-400 ml-2">{medicine.genericName}</span>
                                                 </div>
-                                                <div className="flex items-center gap-2 text-sm">
-                                                    <span className="font-medium text-teal-700 dark:text-teal-400">
+                                                <div className="flex items-center gap-2 text-xs">
+                                                    <span className="font-medium text-teal-600">
                                                         {formatCurrency(medicine.sellingPrice)}
                                                     </span>
-                                                    <span className={`text-xs ${available <= 5 ? 'text-red-500' : 'text-slate-400'}`}>
+                                                    <span className={cn(available <= 5 ? "text-red-500" : "text-gray-400")}>
                                                         Stock: {available}
                                                     </span>
                                                 </div>
                                             </div>
-                                            {medicine.brandName && (
-                                                <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                                                    Brand: {medicine.brandName}
-                                                </div>
-                                            )}
                                         </button>
                                     );
                                 })}
                             </div>
                         )}
 
-                        {/* No results message */}
                         {isDropdownOpen && searchTerm && filteredMedicines.length === 0 && (
-                            <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-4 text-center text-slate-500 dark:text-slate-400">
-                                No medicines found matching "{searchTerm}"
+                            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg p-3 text-center text-xs text-gray-400">
+                                No medicines found
                             </div>
                         )}
                     </div>
 
-                    <div className="md:col-span-1">
+                    <div className="w-full sm:w-24">
                         <FormField label="Quantity">
                             <Input
                                 type="number"
                                 min={1}
                                 value={medicineQty}
-                                onChange={(e) => {
-                                    setMedicineQty(Number(e.target.value));
-                                    setMedicineError("");
-                                }}
-                                className="w-full"
+                                onChange={(e) => { setMedicineQty(Number(e.target.value)); setMedicineError(""); }}
                             />
                         </FormField>
                     </div>
 
-                    <div className="md:col-span-1">
+                    <div className="w-full sm:w-auto">
                         <Button
                             type="button"
                             onClick={addMedicineItem}
                             disabled={!selectedMedicineData || medicineQty < 1}
-                            className="w-full md:mb-0"
+                            className="w-full"
                         >
-                            <Plus className="w-4 h-4 mr-1" /> Add
+                            <Plus className="w-3.5 h-3.5" /> Add
                         </Button>
-                    </div>
-
-                    {/* Stock info */}
-                    <div className="md:col-span-1 flex items-end">
-                        {selectedMedicineData && (
-                            <p className="text-xs text-slate-400 dark:text-slate-500">
-                                Available: <span className="font-medium">{getAvailableStock(selectedMedicine, selectedMedicineData.currentStock)}</span> {selectedMedicineData.unit}
-                            </p>
-                        )}
                     </div>
                 </div>
 
+                {/* Stock info & error */}
+                {selectedMedicineData && (
+                    <p className="text-xs text-gray-400 mt-2">
+                        Available: <span className="font-medium">{getAvailableStock(selectedMedicine, selectedMedicineData.currentStock)}</span> {selectedMedicineData.unit}
+                    </p>
+                )}
                 {medicineError && (
-                    <p className="text-sm text-red-500 mt-2 flex items-center gap-1">
-                        <AlertTriangle className="w-3.5 h-3.5" /> {medicineError}
+                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" /> {medicineError}
                     </p>
                 )}
 
-                <div className="mt-6">
-                    <p className="text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">Patient Type</p>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                        <button
-                            type="button"
-                            onClick={() => handlePatientTypeChange("walkin")}
-                            className={`px-4 py-2 text-sm rounded-lg border transition-colors ${patientType === "walkin"
-                                ? "bg-teal-50 dark:bg-teal-900/30 border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300"
-                                : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
-                                }`}
-                        >
-                            Walk-in Patient
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => handlePatientTypeChange("registered")}
-                            className={`px-4 py-2 text-sm rounded-lg border transition-colors ${patientType === "registered"
-                                ? "bg-teal-50 dark:bg-teal-900/30 border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300"
-                                : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
-                                }`}
-                        >
-                            Registered Patient
-                        </button>
-                    </div>
+                
 
-                    {patientType === "walkin" ? (
-                        <FormField label="Walk-in Patient Name">
-                            <Input
-                                placeholder="Enter patient name"
-                                value={walkInName}
-                                onChange={(e) => handleWalkInNameChange(e.target.value)}
-                                className="w-full"
-                            />
-                        </FormField>
-                    ) : (
-                        <FormField label="Patient">
-                            <Select {...register("patient")} className="w-full">
-                                <option value="">Select patient (optional)</option>
-                                {patients.map((p: any) => (
-                                    <option key={p._id} value={p._id}>{p.firstName} {p.lastName} ({p.patientId})</option>
-                                ))}
-                            </Select>
-                        </FormField>
-                    )}
-                </div>
-
-                {/* Added medicines list with remove */}
+                {/* Added Items */}
                 {watchedItems.filter(i => i.category === "medicine").length > 0 && (
-                    <div className="mt-6 space-y-2">
-                        <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Added Items</p>
-                        <div className="space-y-2">
+                    <div className="mt-5 space-y-2">
+                        <p className="text-xs font-medium text-gray-600">Added Items</p>
+                        <div className="space-y-1.5">
                             {watchedItems.map((item, i) => (
                                 item.category === "medicine" && (
-                                    <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 bg-teal-50 dark:bg-teal-900/20 rounded-lg gap-2">
-                                        <div className="text-sm flex-1">
-                                            <span className="font-medium text-slate-700 dark:text-slate-200">{item.description}</span>
-                                            <span className="text-slate-400 dark:text-slate-500 ml-2">× {item.quantity}</span>
+                                    <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                        <div className="flex-1 min-w-0">
+                                            <span className="text-xs font-medium text-gray-900">{item.description}</span>
+                                            <span className="text-xs text-gray-400 ml-2">× {item.quantity}</span>
                                         </div>
-                                        <div className="flex items-center gap-3 w-full sm:w-auto">
-                                            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{formatCurrency(item.total)}</span>
+                                        <div className="flex items-center gap-3 shrink-0">
+                                            <span className="text-xs font-semibold text-gray-700">{formatCurrency(item.total)}</span>
                                             <button
                                                 type="button"
                                                 onClick={() => handleRemove(i)}
-                                                className="text-red-400 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 text-xs p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                                                className="text-xs text-gray-400 cursor-pointer"
                                             >
-                                                <X className="w-4 h-4" />
+                                                Remove
                                             </button>
                                         </div>
                                     </div>
@@ -527,42 +460,110 @@ export function PharmacySaleSection({ watchedItems, setValue, register }: Props)
                         </div>
                     </div>
                 )}
+
+                {/* Patient Type */}
+                <div className="mt-5">
+                    <p className="text-xs font-medium text-gray-600 mb-2">Patient Type</p>
+                    <div className="flex gap-2">
+                        <button
+                            type="button"
+                            onClick={() => handlePatientTypeChange("walkin")}
+                            className={cn(
+                                "px-3 py-1.5 text-xs rounded-lg border cursor-pointer",
+                                patientType === "walkin"
+                                    ? "bg-teal-600 text-white border-teal-600"
+                                    : "bg-white border-gray-300 text-gray-600"
+                            )}
+                        >
+                            Walk-in Patient
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handlePatientTypeChange("registered")}
+                            className={cn(
+                                "px-3 py-1.5 text-xs rounded-lg border cursor-pointer",
+                                patientType === "registered"
+                                    ? "bg-teal-600 text-white border-teal-600"
+                                    : "bg-white border-gray-300 text-gray-600"
+                            )}
+                        >
+                            Registered Patient
+                        </button>
+                    </div>
+                </div>
+
+                <div className="mt-3">
+                    {patientType === "walkin" ? (
+                        <FormField label="Walk-in Patient Name">
+                            <Input
+                                placeholder="Enter patient name"
+                                value={walkInName}
+                                onChange={(e) => handleWalkInNameChange(e.target.value)}
+                            />
+                        </FormField>
+                    ) : (
+                        <FormField label="Patient">
+                            <Select {...register("patient")}>
+                                <option value="">Select patient (optional)</option>
+                                {patients.map((p: any) => (
+                                    <option key={p._id} value={p._id}>
+                                        {p.firstName} {p.lastName} ({p.patientId})
+                                    </option>
+                                ))}
+                            </Select>
+                        </FormField>
+                    )}
+                </div>
             </CardBody>
 
-            {/* Barcode scanner modal */}
+            {/* Scanner Modal */}
             <Modal open={scannerOpen} onClose={closeScanner} title="Scan Medicine Barcode" size="md">
                 <div className="space-y-3">
-                    {scannerError && <Alert type="error">{scannerError}</Alert>}
+                    {cameraPermissionDenied ? (
+                        <div className="flex flex-col items-center justify-center py-8 px-4 bg-red-50 rounded-lg border border-red-200">
+                            <Camera className="w-10 h-10 text-red-300 mb-3" />
+                            <p className="text-xs font-semibold text-red-700 mb-1">Camera Access Required</p>
+                            <p className="text-xs text-red-500 text-center mb-4 max-w-xs">
+                                Please allow camera access in your browser settings to scan barcodes.
+                            </p>
+                            <Button type="button" variant="secondary" size="sm" onClick={closeScanner}>
+                                Cancel
+                            </Button>
+                        </div>
+                    ) : (
+                        <>
+                            {scannerError && <Alert type="error">{scannerError}</Alert>}
 
-                    <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
-                        <div id={SCANNER_ELEMENT_ID} className="w-full min-h-[260px] [&_video]:rounded-lg" />
-
-                        {(scannerStarting || checkingBarcode) && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-sm">
-                                <div className="flex items-center gap-2 text-slate-600 text-sm">
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    {checkingBarcode ? "Looking up medicine..." : "Starting camera..."}
-                                </div>
+                            <div className="relative rounded-lg overflow-hidden border border-gray-300 bg-gray-50">
+                                <div id={SCANNER_ELEMENT_ID} className="w-full min-h-[260px]" />
+                                {(scannerStarting || checkingBarcode) && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-white/80">
+                                        <div className="flex items-center gap-2 text-gray-600 text-xs">
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            {checkingBarcode ? "Looking up medicine..." : "Starting camera..."}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
 
-                    <p className="text-xs text-slate-500 text-center flex items-center justify-center gap-1">
-                        <BarcodeIcon className="w-3.5 h-3.5" />
-                        Align the barcode within the frame. It will scan automatically.
-                    </p>
+                            <p className="text-xs text-gray-400 text-center flex items-center justify-center gap-1">
+                                <BarcodeIcon className="w-3.5 h-3.5" />
+                                Align the barcode within the frame. It will scan automatically.
+                            </p>
 
-                    <style jsx global>{`
-                        #${SCANNER_ELEMENT_ID} > div:first-child > div {
-                            border: 3px solid #0d9488 !important;
-                            border-radius: 8px !important;
-                            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35);
-                        }
-                    `}</style>
+                            <style jsx global>{`
+                                #${SCANNER_ELEMENT_ID} > div:first-child > div {
+                                    border: 3px solid #0d9488 !important;
+                                    border-radius: 8px !important;
+                                    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35);
+                                }
+                            `}</style>
 
-                    <div className="flex justify-end pt-2 border-t border-slate-100">
-                        <Button type="button" variant="secondary" onClick={closeScanner}>Cancel</Button>
-                    </div>
+                            <div className="flex justify-end pt-2 border-t border-gray-300">
+                                <Button type="button" variant="secondary" onClick={closeScanner}>Cancel</Button>
+                            </div>
+                        </>
+                    )}
                 </div>
             </Modal>
         </Card>

@@ -9,7 +9,8 @@ import axios from "axios";
 import { Html5Qrcode } from "html5-qrcode";
 import { Modal, FormField, Input, Select, Button, Alert } from "@/components/ui";
 import { updateMedicineSchema, UpdateMedicineInput } from "@/lib/validations";
-import { Camera, Loader2, Barcode as BarcodeIcon } from "lucide-react";
+import { Camera, Loader2, Barcode as BarcodeIcon, PenLine } from "lucide-react";
+import { toast } from "sonner";
 
 interface MedicineDetail {
     _id: string;
@@ -55,12 +56,12 @@ export function EditMedicineModal({ open, onClose, medicine, onUpdate, isPending
         resolver: zodResolver(updateMedicineSchema),
     });
 
-    // --- Barcode state (separate from the main form — saved via its own endpoint) ---
     const [barcodeValue, setBarcodeValue] = useState(medicine?.barcode || "");
     const [scannerOpen, setScannerOpen] = useState(false);
     const [scannerStarting, setScannerStarting] = useState(false);
     const [scannerError, setScannerError] = useState("");
     const [savingBarcode, setSavingBarcode] = useState(false);
+    const [cameraPermissionDenied, setCameraPermissionDenied] = useState(false);
     const scannerRef = useRef<Html5Qrcode | null>(null);
 
     useEffect(() => {
@@ -91,12 +92,12 @@ export function EditMedicineModal({ open, onClose, medicine, onUpdate, isPending
         if (scannerRef.current) {
             try {
                 const state = scannerRef.current.getState();
-                if (state === 2 /* SCANNING */) {
+                if (state === 2) {
                     await scannerRef.current.stop();
                 }
                 scannerRef.current.clear();
             } catch {
-                // already stopped — ignore
+                // ignore
             }
             scannerRef.current = null;
         }
@@ -114,6 +115,7 @@ export function EditMedicineModal({ open, onClose, medicine, onUpdate, isPending
             await axios.post("/api/pharmacy/barcode", { medicineId: medicine._id, barcode: code });
             setBarcodeValue(code);
             setScannerOpen(false);
+            toast.success("Barcode saved successfully!");
         } catch (e: unknown) {
             const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
             setScannerError(msg || "Failed to save barcode. Please try again.");
@@ -122,51 +124,71 @@ export function EditMedicineModal({ open, onClose, medicine, onUpdate, isPending
         }
     }, [savingBarcode, stopScanner, medicine?._id]);
 
+    // --- Start camera when scanner modal opens ---
     useEffect(() => {
         if (!scannerOpen) {
-            stopScanner();
             return;
         }
 
-        let cancelled = false;
-        setScannerError("");
-        setScannerStarting(true);
+        const timer = setTimeout(() => {
+            const el = document.getElementById(SCANNER_ELEMENT_ID);
+            if (!el) {
+                setCameraPermissionDenied(true);
+                setScannerError("Scanner element not found. Please try again.");
+                return;
+            }
 
-        const instance = new Html5Qrcode(SCANNER_ELEMENT_ID);
-        scannerRef.current = instance;
+            setScannerError("");
+            setCameraPermissionDenied(false);
+            setScannerStarting(true);
 
-        instance
-            .start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 260, height: 160 } },
-                (decodedText) => handleScanSuccess(decodedText),
-                () => { /* per-frame miss — expected, ignore */ }
-            )
-            .then(() => {
-                if (!cancelled) setScannerStarting(false);
-            })
-            .catch(() => {
-                if (!cancelled) {
+            const instance = new Html5Qrcode(SCANNER_ELEMENT_ID);
+            scannerRef.current = instance;
+
+            instance
+                .start(
+                    { facingMode: "environment" },
+                    { fps: 10, qrbox: { width: 260, height: 160 } },
+                    (decodedText) => handleScanSuccess(decodedText),
+                    () => { /* per-frame miss — ignore */ }
+                )
+                .then(() => {
                     setScannerStarting(false);
-                    setScannerError("Camera access failed. Check permissions and try again.");
-                }
-            });
+                })
+                .catch(() => {
+                    setScannerStarting(false);
+                    setCameraPermissionDenied(true);
+                });
+        }, 100);
 
         return () => {
-            cancelled = true;
+            clearTimeout(timer);
             stopScanner();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [scannerOpen]);
 
+    // --- Cleanup on unmount ---
+    useEffect(() => {
+        return () => {
+            stopScanner();
+        };
+    }, [stopScanner]);
+
     const closeScanner = () => {
         setScannerOpen(false);
         setScannerError("");
+        setCameraPermissionDenied(false);
+    };
+
+    const handleClose = () => {
+        stopScanner();
+        onClose();
     };
 
     return (
         <>
-            <Modal open={open} onClose={onClose} title="Edit Medicine" size="lg">
+            <Modal open={open} onClose={handleClose} title="Edit Medicine" size="lg">
                 {error && <Alert type="error">{error}</Alert>}
                 <form onSubmit={handleSubmit(onUpdate)} className="space-y-4 mt-2">
                     <FormField label="Barcode">
@@ -178,18 +200,19 @@ export function EditMedicineModal({ open, onClose, medicine, onUpdate, isPending
                                 placeholder="No barcode assigned"
                                 className="flex-1"
                             />
-                            <button
+                            <Button
                                 type="button"
+                                variant="outline"
+                                size="sm"
                                 onClick={() => setScannerOpen(true)}
-                                className="cursor-pointer flex items-center gap-1.5 text-sm text-teal-700 hover:text-teal-800 font-medium whitespace-nowrap px-2 py-2"
                             >
-                                <Camera className="w-4 h-4" />
-                                {barcodeValue ? "Edit Barcode" : "Add Barcode"}
-                            </button>
+                                <Camera className="w-3.5 h-3.5" />
+                                {barcodeValue ? "Edit" : "Add"}
+                            </Button>
                         </div>
                     </FormField>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <FormField label="Brand Name" required error={errors.name?.message}>
                             <Input {...register("name")} error={!!errors.name} />
                         </FormField>
@@ -197,7 +220,7 @@ export function EditMedicineModal({ open, onClose, medicine, onUpdate, isPending
                             <Input {...register("genericName")} error={!!errors.genericName} />
                         </FormField>
                     </div>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <FormField label="Category" required error={errors.category?.message}>
                             <Select {...register("category")} error={!!errors.category}>
                                 <option value="">Select</option>
@@ -214,7 +237,7 @@ export function EditMedicineModal({ open, onClose, medicine, onUpdate, isPending
                             <Input {...register("manufacturer")} />
                         </FormField>
                     </div>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <FormField label="Current Stock" required error={errors.currentStock?.message}>
                             <Input type="number" {...register("currentStock", { valueAsNumber: true })} error={!!errors.currentStock} />
                         </FormField>
@@ -225,7 +248,7 @@ export function EditMedicineModal({ open, onClose, medicine, onUpdate, isPending
                             <Input type="date" {...register("expiryDate")} />
                         </FormField>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <FormField label="Storage Condition">
                             <Select {...register("storageCondition")}>
                                 <option value="">Select</option>
@@ -233,10 +256,10 @@ export function EditMedicineModal({ open, onClose, medicine, onUpdate, isPending
                             </Select>
                         </FormField>
                         <FormField label="Storage Location">
-                            <Input {...register("storageLocation")} placeholder="e.g., Shelf A-1, Window 1, Cold Storage 2" />
+                            <Input {...register("storageLocation")} placeholder="e.g., Shelf A-1, Cold Storage 2" />
                         </FormField>
                     </div>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <FormField label="Unit Cost (PKR)" required error={errors.unitCost?.message}>
                             <Input type="number" {...register("unitCost", { valueAsNumber: true })} error={!!errors.unitCost} />
                         </FormField>
@@ -261,8 +284,8 @@ export function EditMedicineModal({ open, onClose, medicine, onUpdate, isPending
                             <option value="false">Inactive</option>
                         </Select>
                     </FormField>
-                    <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                        <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+                    <div className="flex justify-end gap-2 pt-2 border-t border-gray-300">
+                        <Button type="button" variant="secondary" onClick={handleClose}>Cancel</Button>
                         <Button type="submit" loading={isPending}>Save Changes</Button>
                     </div>
                 </form>
@@ -271,37 +294,52 @@ export function EditMedicineModal({ open, onClose, medicine, onUpdate, isPending
             {/* Scanner sub-modal */}
             <Modal open={scannerOpen} onClose={closeScanner} title={barcodeValue ? "Edit Barcode" : "Add Barcode"} size="md">
                 <div className="space-y-3">
-                    {scannerError && <Alert type="error">{scannerError}</Alert>}
+                    {cameraPermissionDenied ? (
+                        <div className="flex flex-col items-center justify-center py-8 px-4 bg-red-50 rounded-lg border border-red-200">
+                            <Camera className="w-10 h-10 text-red-300 mb-3" />
+                            <p className="text-xs font-semibold text-red-700 mb-1">Camera Access Required</p>
+                            <p className="text-xs text-red-500 text-center mb-4 max-w-xs">
+                                Please allow camera access in your browser settings to scan barcodes.
+                            </p>
+                            <Button type="button" variant="secondary" size="sm" onClick={closeScanner}>
+                                Cancel
+                            </Button>
+                        </div>
+                    ) : (
+                        <>
+                            {scannerError && <Alert type="error">{scannerError}</Alert>}
 
-                    <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
-                        <div id={SCANNER_ELEMENT_ID} className="w-full min-h-[260px] [&_video]:rounded-lg" />
+                            <div className="relative rounded-lg overflow-hidden border border-gray-300 bg-gray-50">
+                                <div id={SCANNER_ELEMENT_ID} className="w-full min-h-[260px]" />
 
-                        {(scannerStarting || savingBarcode) && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-sm">
-                                <div className="flex items-center gap-2 text-slate-600 text-sm">
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    {savingBarcode ? "Saving barcode..." : "Starting camera..."}
-                                </div>
+                                {(scannerStarting || savingBarcode) && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-white/80">
+                                        <div className="flex items-center gap-2 text-gray-600 text-xs">
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            {savingBarcode ? "Saving barcode..." : "Starting camera..."}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
 
-                    <p className="text-xs text-slate-500 text-center flex items-center justify-center gap-1">
-                        <BarcodeIcon className="w-3.5 h-3.5" />
-                        Align the barcode within the frame. It will scan automatically.
-                    </p>
+                            <p className="text-xs text-gray-400 text-center flex items-center justify-center gap-1">
+                                <BarcodeIcon className="w-3.5 h-3.5" />
+                                Align the barcode within the frame. It will scan automatically.
+                            </p>
 
-                    <style jsx global>{`
-                        #${SCANNER_ELEMENT_ID} > div:first-child > div {
-                            border: 3px solid #0d9488 !important;
-                            border-radius: 8px !important;
-                            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35);
-                        }
-                    `}</style>
+                            <style jsx global>{`
+                                #${SCANNER_ELEMENT_ID} > div:first-child > div {
+                                    border: 3px solid #0d9488 !important;
+                                    border-radius: 8px !important;
+                                    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35);
+                                }
+                            `}</style>
 
-                    <div className="flex justify-end pt-2 border-t border-slate-100">
-                        <Button type="button" variant="secondary" onClick={closeScanner}>Cancel</Button>
-                    </div>
+                            <div className="flex justify-end pt-2 border-t border-gray-300">
+                                <Button type="button" variant="secondary" onClick={closeScanner}>Cancel</Button>
+                            </div>
+                        </>
+                    )}
                 </div>
             </Modal>
         </>

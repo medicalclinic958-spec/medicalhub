@@ -1,15 +1,16 @@
 // components/billing/new-invoice-client.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { Card, CardHeader, CardBody, Button, FormField, Select, Alert, Input } from "@/components/ui";
-import { formatCurrency } from "@/lib/utils";
+import { Card, CardBody, Button, FormField, Select, Alert, Input } from "@/components/ui";
+import { formatCurrency, cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { OpdInvoiceSection } from "./opd-invoice-section";
 import { PharmacySaleSection } from "./pharmacy-sale-section";
 import { OtherInvoiceSection } from "./other-invoice-section";
@@ -66,8 +67,15 @@ export function NewInvoiceClient() {
 
   const createMutation = useMutation({
     mutationFn: (d: any) => axios.post("/api/invoice", d),
-    onSuccess: (res) => router.push(`/billing/${res.data.data._id}`),
-    onError: (e: unknown) => setError((e as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed to create invoice"),
+    onSuccess: (res) => {
+      toast.success("Invoice created successfully!");
+      router.push(`/billing/${res.data.data._id}`);
+    },
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed to create invoice";
+      setError(msg);
+      toast.error(msg);
+    },
   });
 
   const onSubmit = (d: FormValues) => {
@@ -81,7 +89,12 @@ export function NewInvoiceClient() {
       ...d,
       patient: selectedPatient || d.patient || undefined,
       doctor: selectedDoctor || undefined,
-      items: validItems.map(item => ({ ...item, quantity: Number(item.quantity), unitPrice: Number(item.unitPrice), total: Number(item.total) })),
+      items: validItems.map(item => ({
+        ...item,
+        quantity: Number(item.quantity),
+        unitPrice: Number(item.unitPrice),
+        total: Number(item.total),
+      })),
       subtotal,
       taxAmount,
       total,
@@ -91,19 +104,29 @@ export function NewInvoiceClient() {
   };
 
   return (
-    <div className="max-w-4xl space-y-5">
+    <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center gap-3">
-        <Link href="/billing"><Button variant="ghost" size="sm"><ArrowLeft className="w-4 h-4" /> Back</Button></Link>
-        <h1 className="text-xl font-bold text-slate-800">New Invoice</h1>
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="p-2 rounded-lg border border-gray-300 text-gray-400 cursor-pointer shrink-0"
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </button>
+        <div>
+          <h1 className="text-lg font-semibold text-gray-900">New Invoice</h1>
+          <p className="text-xs text-gray-500 mt-0.5">Create a new billing invoice</p>
+        </div>
       </div>
 
       {error && <Alert type="error">{error}</Alert>}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {/* Invoice Type */}
         <Card>
-          <CardHeader><h3 className="font-semibold text-slate-700">Invoice Type</h3></CardHeader>
           <CardBody>
-            <FormField label="Type" required>
+            <FormField label="Invoice Type" required>
               <Select {...register("invoiceType")}>
                 <option value="opd">OPD / Consultation</option>
                 <option value="pharmacy_sale">Pharmacy Sale (Patient)</option>
@@ -113,6 +136,7 @@ export function NewInvoiceClient() {
           </CardBody>
         </Card>
 
+        {/* Type-specific sections */}
         {invoiceType === "opd" && (
           <OpdInvoiceSection
             selectedDoctor={selectedDoctor}
@@ -144,26 +168,28 @@ export function NewInvoiceClient() {
         {/* Line Items Display */}
         {watchedItems.length > 0 && (
           <Card>
-            <CardHeader><h3 className="font-semibold text-slate-700">Line Items</h3></CardHeader>
             <CardBody>
+              <h3 className="text-xs font-semibold text-gray-900 mb-3">Line Items</h3>
               <div className="space-y-2">
                 {watchedItems.map((item, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-slate-700">{item.description}</p>
-                      <div className="flex gap-2 mt-1">
-                        <span className="text-xs text-slate-400 capitalize">{item.category}</span>
-                        <span className="text-xs text-slate-400">Qty: {item.quantity} × {formatCurrency(item.unitPrice)}</span>
+                  <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-900 truncate">{item.description}</p>
+                      <div className="flex gap-3 mt-1">
+                        <span className="text-xs text-gray-400 capitalize">{item.category}</span>
+                        <span className="text-xs text-gray-400">
+                          Qty: {item.quantity} × {formatCurrency(item.unitPrice)}
+                        </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm font-medium">{formatCurrency(item.total)}</span>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-xs font-semibold text-gray-700">{formatCurrency(item.total)}</span>
                       <button
                         type="button"
                         onClick={() => setValue("items", watchedItems.filter((_, idx) => idx !== i))}
-                        className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"
+                        className="text-xs text-gray-400 cursor-pointer"
                       >
-                        ✕
+                        Remove
                       </button>
                     </div>
                   </div>
@@ -175,9 +201,9 @@ export function NewInvoiceClient() {
 
         {/* Totals */}
         <Card>
-          <CardHeader><h3 className="font-semibold text-slate-700">Totals</h3></CardHeader>
           <CardBody>
-            <div className="grid grid-cols-2 gap-5">
+            <h3 className="text-xs font-semibold text-gray-900 mb-3">Totals</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <FormField label="Discount">
@@ -201,21 +227,42 @@ export function NewInvoiceClient() {
                 </FormField>
               </div>
 
-              <div className="bg-slate-50 rounded-xl p-4 space-y-2">
-                <div className="flex justify-between text-sm"><span className="text-slate-500">Subtotal</span><span className="font-medium">{formatCurrency(subtotal)}</span></div>
-                {discountAmount > 0 && <div className="flex justify-between text-sm text-emerald-600"><span>Discount</span><span>-{formatCurrency(discountAmount)}</span></div>}
-                {taxAmount > 0 && <div className="flex justify-between text-sm"><span className="text-slate-500">Tax ({watchTaxRate}%)</span><span>{formatCurrency(taxAmount)}</span></div>}
-                <div className="flex justify-between font-bold text-lg border-t border-slate-200 pt-2 mt-2">
-                  <span>Total</span><span>{formatCurrency(total)}</span>
+              <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-400">Subtotal</span>
+                  <span className="font-medium text-gray-700">{formatCurrency(subtotal)}</span>
+                </div>
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-teal-600">Discount</span>
+                    <span className="text-teal-600 font-medium">-{formatCurrency(discountAmount)}</span>
+                  </div>
+                )}
+                {taxAmount > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-400">Tax ({watchTaxRate}%)</span>
+                    <span className="text-gray-700">{formatCurrency(taxAmount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-semibold text-sm border-t border-gray-200 pt-2 mt-2">
+                  <span className="text-gray-900">Total</span>
+                  <span className="text-gray-900">{formatCurrency(total)}</span>
                 </div>
               </div>
             </div>
           </CardBody>
         </Card>
 
-        <div className="flex justify-end gap-3">
-          <Link href="/billing"><Button type="button" variant="secondary">Cancel</Button></Link>
-          <Button type="submit" loading={createMutation.isPending} disabled={watchedItems.filter(i => i.description && i.quantity > 0).length === 0}>
+        {/* Actions */}
+        <div className="flex justify-end gap-2">
+          <Link href="/billing">
+            <Button type="button" variant="secondary">Cancel</Button>
+          </Link>
+          <Button
+            type="submit"
+            loading={createMutation.isPending}
+            disabled={watchedItems.filter(i => i.description && i.quantity > 0).length === 0}
+          >
             Create Invoice
           </Button>
         </div>

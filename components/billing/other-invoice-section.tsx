@@ -5,8 +5,8 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { Plus } from "lucide-react";
-import { Card, CardHeader, CardBody, Button, FormField, Input, Select } from "@/components/ui";
-import { formatCurrency } from "@/lib/utils";
+import { Card, CardBody, Button, FormField, Input, Select } from "@/components/ui";
+import { formatCurrency, cn } from "@/lib/utils";
 import { UseFormSetValue } from "react-hook-form";
 
 interface LineItem {
@@ -30,7 +30,7 @@ export function OtherInvoiceSection({ invoiceType, watchedItems, setValue, regis
     const [description, setDescription] = useState("");
     const [quantity, setQuantity] = useState(1);
     const [unitPrice, setUnitPrice] = useState(0);
-    const [patientType, setPatientType] = useState<"registered" | "walkin">("registered");
+    const [patientType, setPatientType] = useState<"registered" | "walkin">("walkin");
     const [walkInName, setWalkInName] = useState("");
 
     const { data: patientsData } = useQuery({
@@ -69,115 +69,136 @@ export function OtherInvoiceSection({ invoiceType, watchedItems, setValue, regis
 
     return (
         <Card>
-            <CardHeader><h3 className="font-semibold text-slate-700">Other Details</h3></CardHeader>
-            <CardBody className="space-y-4">
-                <div>
-                    <p className="text-sm font-medium text-slate-600 mb-2">Patient Type</p>
-                    <div className="flex gap-2">
-                        <button
-                            type="button"
-                            onClick={() => handlePatientTypeChange("registered")}
-                            className={`px-4 py-2 text-sm rounded-lg border ${patientType === "registered" ? "bg-blue-50 border-blue-300 text-blue-700" : "bg-white border-slate-200 text-slate-600"}`}
-                        >
-                            Registered Patient
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => handlePatientTypeChange("walkin")}
-                            className={`px-4 py-2 text-sm rounded-lg border ${patientType === "walkin" ? "bg-blue-50 border-blue-300 text-blue-700" : "bg-white border-slate-200 text-slate-600"}`}
-                        >
-                            Walk-in Patient
-                        </button>
-                    </div>
-                </div>
+            <CardBody>
+                <h3 className="text-xs font-semibold text-gray-900 mb-3">Other Details</h3>
 
-                {patientType === "registered" ? (
-                    <FormField label="Patient">
-                        <Select {...register("patient")}>
-                            <option value="">Select patient (optional)</option>
-                            {patients.map((p: any) => (
-                                <option key={p._id} value={p._id}>{p.firstName} {p.lastName} ({p.patientId})</option>
-                            ))}
-                        </Select>
-                    </FormField>
-                ) : (
-                    <FormField label="Walk-in Patient Name">
-                        <Input
-                            placeholder="Enter patient name"
-                            value={walkInName}
-                            onChange={(e) => handleWalkInNameChange(e.target.value)}
-                        />
-                    </FormField>
-                )}
-
-                <div>
-                    <p className="text-sm font-medium text-slate-600 mb-2">Add Items</p>
-                    <div className="grid grid-cols-12 gap-2 items-end">
-                        <div className="col-span-5">
-                            <FormField label="Description">
-                                <Input
-                                    placeholder="Item description"
-                                    value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
-                                />
-                            </FormField>
-                        </div>
-                        <div className="col-span-2">
-                            <FormField label="Qty">
-                                <Input
-                                    type="number"
-                                    min={1}
-                                    value={quantity}
-                                    onChange={(e) => setQuantity(Number(e.target.value))}
-                                />
-                            </FormField>
-                        </div>
-                        <div className="col-span-3">
-                            <FormField label="Unit Price">
-                                <Input
-                                    type="number"
-                                    min={0}
-                                    value={unitPrice}
-                                    onChange={(e) => setUnitPrice(Number(e.target.value))}
-                                />
-                            </FormField>
-                        </div>
-                        <div className="col-span-2">
-                            <Button
-                                type="button"
-                                onClick={addItem}
-                                disabled={!description || quantity < 1}
-                                className="w-full"
-                            >
-                                <Plus className="w-4 h-4" /> Add
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-
-                {watchedItems.length > 0 && (
-                    <div className="mt-4 space-y-2">
-                        <p className="text-sm font-medium text-slate-600">Added Items</p>
-                        {watchedItems.map((item, i) => (
-                            <div key={i} className="flex items-center justify-between p-2 bg-blue-50 rounded-lg">
-                                <div className="text-sm">
-                                    <span className="font-medium">{item.description}</span>
-                                    <span className="text-slate-400 ml-2">× {item.quantity}</span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <span className="text-sm font-medium">{formatCurrency(item.total)}</span>
-                                    <button
-                                        type="button"
-                                        onClick={() => setValue("items", watchedItems.filter((_, idx) => idx !== i))}
-                                        className="text-red-400 hover:text-red-600 text-xs"
-                                    >
-                                        ✕
-                                    </button>
-                                </div>
+                <div className="space-y-5">
+                    {/* Add Items */}
+                    <div>
+                        <p className="text-xs font-medium text-gray-600 mb-2">Add Items</p>
+                        <div className="flex flex-col sm:flex-row gap-3 items-end">
+                            <div className="flex-1 w-full">
+                                <FormField label="Description">
+                                    <Input
+                                        placeholder="Item description"
+                                        value={description}
+                                        onChange={(e) => setDescription(e.target.value)}
+                                    />
+                                </FormField>
                             </div>
-                        ))}
+                            <div className="w-full sm:w-20">
+                                <FormField label="Qty">
+                                    <Input
+                                        type="number"
+                                        min={1}
+                                        value={quantity}
+                                        onChange={(e) => setQuantity(Number(e.target.value))}
+                                    />
+                                </FormField>
+                            </div>
+                            <div className="w-full sm:w-32">
+                                <FormField label="Unit Price">
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        value={unitPrice}
+                                        onChange={(e) => setUnitPrice(Number(e.target.value))}
+                                    />
+                                </FormField>
+                            </div>
+                            <div className="w-full sm:w-auto">
+                                <Button
+                                    type="button"
+                                    onClick={addItem}
+                                    disabled={!description || quantity < 1}
+                                    className="w-full"
+                                >
+                                    <Plus className="w-3.5 h-3.5" /> Add
+                                </Button>
+                            </div>
+                        </div>
                     </div>
-                )}
+
+                    {/* Added Items */}
+                    {watchedItems.length > 0 && (
+                        <div className="space-y-1.5">
+                            <p className="text-xs font-medium text-gray-600">Added Items</p>
+                            {watchedItems.map((item, i) => (
+                                <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                    <div className="flex-1 min-w-0">
+                                        <span className="text-xs font-medium text-gray-900">{item.description}</span>
+                                        <span className="text-xs text-gray-400 ml-2">× {item.quantity}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 shrink-0">
+                                        <span className="text-xs font-semibold text-gray-700">{formatCurrency(item.total)}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setValue("items", watchedItems.filter((_, idx) => idx !== i))}
+                                            className="text-xs text-gray-400 cursor-pointer"
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Patient Type */}
+                    <div>
+                        <p className="text-xs font-medium text-gray-600 mb-2">Patient Type</p>
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => handlePatientTypeChange("walkin")}
+                                className={cn(
+                                    "px-3 py-1.5 text-xs rounded-lg border cursor-pointer",
+                                    patientType === "walkin"
+                                        ? "bg-teal-600 text-white border-teal-600"
+                                        : "bg-white border-gray-300 text-gray-600"
+                                )}
+                            >
+                                Walk-in Patient
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handlePatientTypeChange("registered")}
+                                className={cn(
+                                    "px-3 py-1.5 text-xs rounded-lg border cursor-pointer",
+                                    patientType === "registered"
+                                        ? "bg-teal-600 text-white border-teal-600"
+                                        : "bg-white border-gray-300 text-gray-600"
+                                )}
+                            >
+                                Registered Patient
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Patient Select / Walk-in Name */}
+                    <div>
+                        {patientType === "walkin" ? (
+                            <FormField label="Walk-in Patient Name">
+                                <Input
+                                    placeholder="Enter patient name"
+                                    value={walkInName}
+                                    onChange={(e) => handleWalkInNameChange(e.target.value)}
+                                />
+                            </FormField>
+                        ) : (
+                            <FormField label="Patient">
+                                <Select {...register("patient")}>
+                                    <option value="">Select patient (optional)</option>
+                                    {patients.map((p: any) => (
+                                        <option key={p._id} value={p._id}>
+                                            {p.firstName} {p.lastName} ({p.patientId})
+                                        </option>
+                                    ))}
+                                </Select>
+                            </FormField>
+                        )}
+                    </div>
+                </div>
             </CardBody>
         </Card>
     );

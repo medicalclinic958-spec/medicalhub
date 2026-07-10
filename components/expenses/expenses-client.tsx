@@ -1,3 +1,4 @@
+// components/expenses/expenses-client.tsx
 "use client";
 
 import { useState, useRef } from "react";
@@ -6,14 +7,15 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import axios from "axios";
 import { useRouter } from "next/navigation";
-import { Plus, TrendingDown, Eye, X, Image as ImageIcon } from "lucide-react";
+import { Plus, TrendingDown, Filter, ChevronDown, X, Image as ImageIcon } from "lucide-react";
 import {
   Card, CardBody, Table, Th, Td, Button, Modal,
   FormField, Input, Select, EmptyState, Pagination, Badge, Alert, StatCard, StatusBadge,
 } from "@/components/ui";
 import { createExpenseSchema, CreateExpenseInput } from "@/lib/validations";
-import { formatDate, formatCurrency } from "@/lib/utils";
+import { formatDate, formatCurrency, cn } from "@/lib/utils";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 
 interface Expense {
   _id: string; title: string; category: string; amount: number;
@@ -36,14 +38,17 @@ export function ExpensesClient() {
   const [createError, setCreateError] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [filePreviews, setFilePreviews] = useState<string[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const isSA = session?.user.isSuperAdmin;
   const perms = session?.user.permissions || [];
   const canCreate = isSA || perms.includes("expenses:create");
 
+  const activeFiltersCount = [category, status].filter(Boolean).length;
+
   const { data, isLoading } = useQuery({
     queryKey: ["expenses", page, category, status, from, to],
-    queryFn: () => axios.get("/api/expenses", { params: { page, limit: 25, category, status, from, to } }).then(r => r.data),
+    queryFn: () => axios.get("/api/expenses", { params: { page, limit: 25, category: category || undefined, status: status || undefined, from, to } }).then(r => r.data),
   });
 
   const expenses: Expense[] = data?.data?.expenses || [];
@@ -78,20 +83,22 @@ export function ExpensesClient() {
       setSelectedFiles([]);
       setFilePreviews([]);
       setCreateError("");
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      toast.success("Expense recorded successfully!");
     },
     onError: (e: unknown) => {
-      setCreateError((e as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed to create expense");
+      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed to create expense";
+      setCreateError(msg);
+      toast.error(msg);
     },
   });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
+    const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"];
+    const maxSize = 5 * 1024 * 1024;
+
     const validFiles = files.filter(file => {
-      const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"];
-      const maxSize = 5 * 1024 * 1024; // 5MB
       if (!validTypes.includes(file.type)) {
         setCreateError(`Invalid file type: ${file.name}. Only images and PDFs allowed`);
         return false;
@@ -104,16 +111,12 @@ export function ExpensesClient() {
     });
 
     if (validFiles.length !== files.length) {
-      // Error already set above
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
     setSelectedFiles(prev => [...prev, ...validFiles]);
 
-    // Create previews for images
     validFiles.forEach(file => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -122,10 +125,7 @@ export function ExpensesClient() {
       reader.readAsDataURL(file);
     });
 
-    // Reset input to allow selecting same files again
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const removeFile = (index: number) => {
@@ -137,80 +137,225 @@ export function ExpensesClient() {
   const PAYMENT_METHODS = ["cash", "card", "bank_transfer", "mobile_wallet", "insurance"];
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Expenses</h1>
-          <p className="text-sm text-slate-500">Track all operational expenses</p>
+          <h1 className="text-lg font-semibold text-gray-900">Expenses</h1>
+          <p className="text-xs text-gray-500 mt-0.5">Track all operational expenses</p>
         </div>
-        {canCreate && <Button onClick={() => setCreateOpen(true)}><Plus className="w-4 h-4" /> Add Expense</Button>}
+        {canCreate && (
+          <Button onClick={() => setCreateOpen(true)} size="sm">
+            <Plus className="w-3.5 h-3.5" /> Add Expense
+          </Button>
+        )}
       </div>
 
+      {/* Stats */}
       <StatCard title="Total Expenses (Period)" value={formatCurrency(totalAmount)} icon={TrendingDown} loading={isLoading} />
 
-      <Card>
-        <CardBody className="py-3">
-          <div className="flex flex-wrap gap-3 items-center">
-            <Select value={category} onChange={e => { setCategory(e.target.value); setPage(1); }} className="w-36">
-              <option value="">All categories</option>
-              {CATEGORIES.map(c => <option key={c} value={c} className="capitalize">{c}</option>)}
-            </Select>
-            <Select value={status} onChange={e => { setStatus(e.target.value); setPage(1); }} className="w-36">
-              <option value="">All statuses</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-            </Select>
-            <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-36" />
-            <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-36" />
-          </div>
-        </CardBody>
-      </Card>
+      {/* Search + Filter Toggle */}
+      <div className="flex gap-2">
+        <div className="flex-1 flex gap-2">
+          <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="flex-1" />
+          <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="flex-1" />
+        </div>
+        <button
+          onClick={() => setFiltersOpen(!filtersOpen)}
+          className={cn(
+            "inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border cursor-pointer shrink-0",
+            filtersOpen || activeFiltersCount > 0
+              ? "bg-teal-600 text-white border-teal-600"
+              : "bg-white border-gray-300 text-gray-600"
+          )}
+        >
+          <Filter className="w-3.5 h-3.5" />
+          Filters
+          {activeFiltersCount > 0 && (
+            <span className="bg-white text-teal-600 text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-semibold">
+              {activeFiltersCount}
+            </span>
+          )}
+          <ChevronDown className={cn("w-3 h-3", filtersOpen && "rotate-180")} />
+        </button>
+      </div>
 
-      <Card>
+      {/* Active Filter Chips */}
+      {activeFiltersCount > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {category && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-200 text-xs text-teal-700 capitalize">
+              {category}
+              <button onClick={() => { setCategory(""); setPage(1); }} className="cursor-pointer">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {status && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-200 text-xs text-teal-700 capitalize">
+              {status}
+              <button onClick={() => { setStatus(""); setPage(1); }} className="cursor-pointer">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          <button
+            onClick={() => { setCategory(""); setStatus(""); setPage(1); }}
+            className="text-xs text-gray-400 cursor-pointer"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
+
+      {/* Expanded Filters */}
+      {filtersOpen && (
+        <div className="bg-gray-50 rounded-lg border border-gray-300 p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Category</label>
+              <Select value={category} onChange={e => { setCategory(e.target.value); setPage(1); }}>
+                <option value="">All Categories</option>
+                {CATEGORIES.map(c => <option key={c} value={c} className="capitalize">{c}</option>)}
+              </Select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Status</label>
+              <Select value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}>
+                <option value="">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </Select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Desktop Table */}
+      <Card className="hidden md:block overflow-x-auto">
         <Table>
           <thead>
-            <tr><Th>Title</Th><Th>Category</Th><Th>Amount</Th><Th>Method</Th><Th>Vendor</Th><Th>Status</Th><Th>Date</Th><Th>Actions</Th></tr>
+            <tr>
+              <Th>Title</Th>
+              <Th>Category</Th>
+              <Th>Amount</Th>
+              <Th>Method</Th>
+              <Th>Vendor</Th>
+              <Th>Status</Th>
+              <Th>Date</Th>
+              <Th>Actions</Th>
+            </tr>
           </thead>
           <tbody>
             {isLoading ? (
-              [...Array(8)].map((_, i) => <tr key={i}>{[...Array(8)].map((_, j) => <Td key={j}><div className="h-4 bg-slate-100 rounded animate-pulse" /></Td>)}</tr>)
+              [...Array(8)].map((_, i) => (
+                <tr key={i}>
+                  {[...Array(8)].map((_, j) => (
+                    <Td key={j}><div className="h-4 bg-gray-100 rounded" /></Td>
+                  ))}
+                </tr>
+              ))
             ) : expenses.length === 0 ? (
-              <tr><td colSpan={8}><EmptyState title="No expenses found" action={canCreate ? <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="w-3.5 h-3.5" /> Add Expense</Button> : undefined} /></td></tr>
-            ) : expenses.map(e => (
-              <tr key={e._id} className="hover:bg-slate-50">
-                <Td><div className="font-medium text-slate-800">{e.title}</div></Td>
-                <Td><Badge variant="outline" className="capitalize">{e.category}</Badge></Td>
-                <Td><span className="font-semibold text-red-600">{formatCurrency(e.amount)}</span></Td>
-                <Td className="capitalize text-slate-500">{e.paymentMethod?.replace(/_/g, " ")}</Td>
-                <Td className="text-slate-400">{e.vendor || "—"}</Td>
-                <Td><StatusBadge status={e.status} /></Td>
-                <Td className="text-slate-400">{formatDate(e.date)}</Td>
-                <Td>
-                  <button onClick={() => router.push(`/expenses/${e._id}`)} className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-all">
-                    <Eye className="w-3.5 h-3.5" />
-                  </button>
-                </Td>
+              <tr>
+                <td colSpan={8}>
+                  <EmptyState
+                    title="No expenses found"
+                    description="Try adjusting your filters or add a new expense"
+                    action={canCreate ? (
+                      <Button size="sm" onClick={() => setCreateOpen(true)}>
+                        <Plus className="w-3.5 h-3.5" /> Add Expense
+                      </Button>
+                    ) : undefined}
+                  />
+                </td>
               </tr>
-            ))}
+            ) : (
+              expenses.map(e => (
+                <tr key={e._id}>
+                  <Td>
+                    <div className="font-medium text-gray-900">{e.title}</div>
+                  </Td>
+                  <Td><Badge variant="outline" className="capitalize">{e.category}</Badge></Td>
+                  <Td><span className="font-semibold text-red-500">{formatCurrency(e.amount)}</span></Td>
+                  <Td className="capitalize text-gray-500">{e.paymentMethod?.replace(/_/g, " ")}</Td>
+                  <Td className="text-gray-400">{e.vendor || "—"}</Td>
+                  <Td><StatusBadge status={e.status} /></Td>
+                  <Td className="text-gray-400">{formatDate(e.date)}</Td>
+                  <Td>
+                    <Button size="sm" onClick={() => router.push(`/expenses/${e._id}`)}>
+                      View
+                    </Button>
+                  </Td>
+                </tr>
+              ))
+            )}
           </tbody>
         </Table>
         {pagination && pagination.totalPages > 1 && (
-          <div className="px-4 py-3 border-t border-slate-100 flex justify-end">
+          <div className="px-4 py-3 border-t border-gray-300 flex justify-end">
             <Pagination page={page} totalPages={pagination.totalPages} onPage={setPage} />
           </div>
         )}
       </Card>
 
+      {/* Mobile Cards */}
+      <div className="md:hidden divide-y divide-gray-100 border border-gray-300 rounded-lg bg-white">
+        {isLoading ? (
+          [...Array(5)].map((_, i) => (
+            <div key={i} className="p-3 flex items-center justify-between">
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-100 rounded w-28" />
+                <div className="h-3 bg-gray-100 rounded w-20" />
+              </div>
+              <div className="h-7 bg-gray-100 rounded w-14" />
+            </div>
+          ))
+        ) : expenses.length === 0 ? (
+          <EmptyState
+            title="No expenses found"
+            description="Try adjusting your filters"
+            action={canCreate ? (
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
+                <Plus className="w-3.5 h-3.5" /> Add Expense
+              </Button>
+            ) : undefined}
+          />
+        ) : (
+          expenses.map(e => (
+            <div key={e._id} className="flex items-center justify-between p-3 gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-900 truncate">{e.title}</span>
+                  <StatusBadge status={e.status} />
+                </div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xs font-semibold text-red-500">{formatCurrency(e.amount)}</span>
+                  <span className="text-xs text-gray-400">•</span>
+                  <span className="text-xs text-gray-500 capitalize">{e.category}</span>
+                </div>
+              </div>
+              <Button size="sm" onClick={() => router.push(`/expenses/${e._id}`)}>
+                View
+              </Button>
+            </div>
+          ))
+        )}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="px-4 py-3 flex justify-center">
+            <Pagination page={page} totalPages={pagination.totalPages} onPage={setPage} />
+          </div>
+        )}
+      </div>
+
+      {/* Create Modal */}
       <Modal open={createOpen} onClose={() => {
         setCreateOpen(false);
         reset();
         setSelectedFiles([]);
         setFilePreviews([]);
         setCreateError("");
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
+        if (fileInputRef.current) fileInputRef.current.value = "";
       }} title="Add Expense" size="lg">
         {createError && <Alert type="error">{createError}</Alert>}
         <form onSubmit={handleSubmit(d => createMutation.mutate(d))} className="space-y-4 mt-2">
@@ -218,7 +363,7 @@ export function ExpensesClient() {
             <Input {...register("title")} error={!!errors.title} placeholder="e.g. Office electricity bill" />
           </FormField>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="Category" required error={errors.category?.message}>
               <Select {...register("category")} error={!!errors.category}>
                 <option value="">Select category</option>
@@ -230,15 +375,9 @@ export function ExpensesClient() {
             </FormField>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="Amount (PKR)" required error={errors.amount?.message}>
-              <Input
-                type="number"
-                step="0.01"
-                {...register("amount", { valueAsNumber: true })}
-                error={!!errors.amount}
-                placeholder="0.00"
-              />
+              <Input type="number" step="0.01" {...register("amount", { valueAsNumber: true })} error={!!errors.amount} placeholder="0.00" />
             </FormField>
             <FormField label="Payment Method" required error={errors.paymentMethod?.message}>
               <Select {...register("paymentMethod")} error={!!errors.paymentMethod}>
@@ -248,29 +387,27 @@ export function ExpensesClient() {
             </FormField>
           </div>
 
-          <FormField label="Vendor / Payee" error={errors.vendor?.message}>
+          <FormField label="Vendor / Payee">
             <Input {...register("vendor")} placeholder="Optional vendor name" />
           </FormField>
 
-          <FormField label="Description" error={errors.description?.message}>
+          <FormField label="Description">
             <textarea
               {...register("description")}
               rows={2}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 text-xs resize-none focus:outline-none focus:border-teal-600 text-gray-700 placeholder:text-gray-400"
               placeholder="Optional description"
             />
           </FormField>
 
-          {/* File Upload Section */}
+          {/* File Upload */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Receipts / Attachments
-            </label>
+            <label className="block text-xs font-medium text-gray-600 mb-2">Receipts / Attachments</label>
             <div className="flex items-center gap-3">
               <label className="cursor-pointer">
-                <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors">
-                  <ImageIcon className="w-4 h-4 text-slate-500" />
-                  <span className="text-sm text-slate-600">Add Files</span>
+                <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg">
+                  <ImageIcon className="w-4 h-4 text-gray-400" />
+                  <span className="text-xs text-gray-600">Add Files</span>
                 </div>
                 <input
                   ref={fileInputRef}
@@ -281,22 +418,18 @@ export function ExpensesClient() {
                   className="hidden"
                 />
               </label>
-              <span className="text-xs text-slate-400">Images or PDF (max 5MB each)</span>
+              <span className="text-xs text-gray-400">Images or PDF (max 5MB each)</span>
             </div>
 
             {selectedFiles.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-3">
                 {selectedFiles.map((file, index) => (
                   <div key={index} className="relative w-20">
-                    <div className="w-20 h-20 rounded-lg border border-slate-200 overflow-hidden bg-slate-50">
+                    <div className="w-20 h-20 rounded-lg border border-gray-300 overflow-hidden bg-gray-50">
                       {file.type.startsWith("image/") ? (
-                        <img
-                          src={filePreviews[index]}
-                          alt={file.name}
-                          className="w-full h-full object-cover"
-                        />
+                        <img src={filePreviews[index]} alt={file.name} className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs p-2 text-center">
+                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs p-2 text-center">
                           {file.name.split(".").pop()?.toUpperCase()}
                         </div>
                       )}
@@ -304,43 +437,30 @@ export function ExpensesClient() {
                     <button
                       type="button"
                       onClick={() => removeFile(index)}
-                      className="absolute -top-1.5 -right-1.5 p-0.5 bg-red-500 text-white rounded-full hover:bg-red-600 active:bg-red-700 transition-colors shadow-sm"
+                      className="absolute -top-1.5 -right-1.5 p-0.5 bg-red-500 text-white rounded-full cursor-pointer"
                       title="Remove"
                     >
                       <X className="w-3 h-3" />
                     </button>
-                    <p className="text-xs text-slate-400 truncate w-20 text-center mt-1">
-                      {file.name}
-                    </p>
+                    <p className="text-xs text-gray-400 truncate w-20 text-center mt-1">{file.name}</p>
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                setCreateOpen(false);
-                reset();
-                setSelectedFiles([]);
-                setFilePreviews([]);
-                setCreateError("");
-                if (fileInputRef.current) {
-                  fileInputRef.current.value = "";
-                }
-              }}
-            >
+          <div className="flex justify-end gap-2 pt-2 border-t border-gray-300">
+            <Button type="button" variant="secondary" onClick={() => {
+              setCreateOpen(false);
+              reset();
+              setSelectedFiles([]);
+              setFilePreviews([]);
+              setCreateError("");
+              if (fileInputRef.current) fileInputRef.current.value = "";
+            }}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              loading={createMutation.isPending}
-            >
-              Record Expense
-            </Button>
+            <Button type="submit" loading={createMutation.isPending}>Record Expense</Button>
           </div>
         </form>
       </Modal>

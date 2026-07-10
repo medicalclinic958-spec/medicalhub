@@ -1,3 +1,4 @@
+// components/expenses/edit-expense-modal.tsx
 "use client";
 
 import { useEffect, useState, useRef } from "react";
@@ -57,7 +58,6 @@ export function EditExpenseModal({ open, onClose, expense, onUpdate, isPending, 
                 description: expense.description || "",
                 status: expense.status as any,
             });
-            // Reset file states when expense changes
             setSelectedFiles([]);
             setFilePreviews([]);
             setFilesToRemove([]);
@@ -67,29 +67,24 @@ export function EditExpenseModal({ open, onClose, expense, onUpdate, isPending, 
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
-        let hasError = false;
 
         const validFiles = files.filter(file => {
             const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"];
-            const maxSize = 5 * 1024 * 1024; // 5MB
+            const maxSize = 5 * 1024 * 1024;
 
             if (!validTypes.includes(file.type)) {
-                setUploadError(`❌ Invalid file type: "${file.name}". Only images and PDFs are allowed.`);
-                hasError = true;
+                setUploadError(`Invalid file type: "${file.name}". Only images and PDFs are allowed.`);
                 return false;
             }
             if (file.size > maxSize) {
-                setUploadError(`❌ File too large: "${file.name}". Maximum 5MB allowed.`);
-                hasError = true;
+                setUploadError(`File too large: "${file.name}". Maximum 5MB allowed.`);
                 return false;
             }
             return true;
         });
 
-        if (hasError) {
-            if (fileInputRef.current) {
-                fileInputRef.current.value = "";
-            }
+        if (validFiles.length !== files.length) {
+            if (fileInputRef.current) fileInputRef.current.value = "";
             return;
         }
 
@@ -105,9 +100,7 @@ export function EditExpenseModal({ open, onClose, expense, onUpdate, isPending, 
             reader.readAsDataURL(file);
         });
 
-        if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-        }
+        if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
     const removeNewFile = (index: number) => {
@@ -126,7 +119,6 @@ export function EditExpenseModal({ open, onClose, expense, onUpdate, isPending, 
     const handleSubmitForm = (data: UpdateExpenseInput) => {
         const formData = new FormData();
 
-        // Add all fields
         if (data.title) formData.append("title", data.title);
         if (data.category) formData.append("category", data.category);
         if (data.amount) formData.append("amount", data.amount.toString());
@@ -136,12 +128,10 @@ export function EditExpenseModal({ open, onClose, expense, onUpdate, isPending, 
         if (data.description) formData.append("description", data.description);
         if (data.status) formData.append("status", data.status);
 
-        // Add files to remove
         if (filesToRemove.length > 0) {
             formData.append("removeFiles", JSON.stringify(filesToRemove));
         }
 
-        // Add new files
         selectedFiles.forEach(file => formData.append("files", file));
 
         onUpdate(formData);
@@ -149,12 +139,8 @@ export function EditExpenseModal({ open, onClose, expense, onUpdate, isPending, 
 
     const getFileType = (url: string) => {
         const extension = url.split(".").pop()?.toLowerCase() || "";
-        if (["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(extension)) {
-            return "image";
-        }
-        if (["pdf"].includes(extension)) {
-            return "pdf";
-        }
+        if (["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(extension)) return "image";
+        if (["pdf"].includes(extension)) return "pdf";
         return "file";
     };
 
@@ -173,7 +159,7 @@ export function EditExpenseModal({ open, onClose, expense, onUpdate, isPending, 
                     <Input {...register("title")} error={!!errors.title} />
                 </FormField>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField label="Category" required error={errors.category?.message}>
                         <Select {...register("category")} error={!!errors.category}>
                             <option value="">Select</option>
@@ -185,7 +171,7 @@ export function EditExpenseModal({ open, onClose, expense, onUpdate, isPending, 
                     </FormField>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField label="Amount (PKR)" required error={errors.amount?.message}>
                         <Input type="number" step="0.01" {...register("amount", { valueAsNumber: true })} error={!!errors.amount} />
                     </FormField>
@@ -202,13 +188,17 @@ export function EditExpenseModal({ open, onClose, expense, onUpdate, isPending, 
                 </FormField>
 
                 <FormField label="Description">
-                    <textarea {...register("description")} rows={2} className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <textarea
+                        {...register("description")}
+                        rows={2}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-300 text-xs resize-none focus:outline-none focus:border-teal-600 text-gray-700 placeholder:text-gray-400"
+                    />
                 </FormField>
 
-                {/* Existing Files Section */}
+                {/* Existing Files */}
                 {existingFiles.length > 0 && (
                     <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        <label className="block text-xs font-medium text-gray-600 mb-2">
                             Current Receipts ({existingFiles.length})
                         </label>
                         <div className="flex flex-wrap gap-3">
@@ -216,29 +206,23 @@ export function EditExpenseModal({ open, onClose, expense, onUpdate, isPending, 
                                 const isMarkedForRemoval = filesToRemove.includes(index);
                                 return (
                                     <div key={index} className="relative">
-                                        <div className={`w-24 rounded-lg border-2 overflow-hidden bg-slate-50 transition-all ${isMarkedForRemoval ? 'border-red-400 opacity-50' : 'border-slate-200'
-                                            }`}>
+                                        <div className={`w-24 rounded-lg border-2 overflow-hidden bg-gray-50 ${isMarkedForRemoval ? 'border-red-400 opacity-50' : 'border-gray-300'}`}>
                                             <div className="w-24 h-24">
                                                 {getFileType(receipt.url) === "image" ? (
-                                                    <img
-                                                        src={receipt.url}
-                                                        alt={`Receipt ${index + 1}`}
-                                                        className="w-full h-full object-cover"
-                                                    />
+                                                    <img src={receipt.url} alt={`Receipt ${index + 1}`} className="w-full h-full object-cover" />
                                                 ) : (
                                                     <div className="w-full h-full flex flex-col items-center justify-center p-2">
-                                                        <span className="text-xs text-slate-400 text-center break-all">
+                                                        <span className="text-xs text-gray-400 text-center break-all">
                                                             {getFileName(receipt.url).slice(0, 15)}
                                                         </span>
                                                     </div>
                                                 )}
                                             </div>
-                                            {/* Always-visible action bar */}
-                                            <div className="flex items-center justify-center gap-0.5 bg-slate-100 border-t border-slate-200 py-1">
+                                            <div className="flex items-center justify-center gap-0.5 bg-gray-100 border-t border-gray-300 py-1">
                                                 <button
                                                     type="button"
                                                     onClick={() => window.open(receipt.url, "_blank")}
-                                                    className="p-1 bg-blue-600 text-white rounded hover:bg-blue-700 active:bg-blue-800 transition-colors"
+                                                    className="p-1 rounded bg-teal-600 text-white cursor-pointer"
                                                     title="View"
                                                 >
                                                     <Eye className="w-3 h-3" />
@@ -254,7 +238,7 @@ export function EditExpenseModal({ open, onClose, expense, onUpdate, isPending, 
                                                         link.click();
                                                         document.body.removeChild(link);
                                                     }}
-                                                    className="p-1 bg-green-600 text-white rounded hover:bg-green-700 active:bg-green-800 transition-colors"
+                                                    className="p-1 rounded bg-gray-600 text-white cursor-pointer"
                                                     title="Download"
                                                 >
                                                     <Download className="w-3 h-3" />
@@ -262,10 +246,7 @@ export function EditExpenseModal({ open, onClose, expense, onUpdate, isPending, 
                                                 <button
                                                     type="button"
                                                     onClick={() => isMarkedForRemoval ? unmarkForRemoval(index) : markForRemoval(index)}
-                                                    className={`p-1 rounded transition-colors ${isMarkedForRemoval
-                                                        ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white'
-                                                        : 'bg-red-600 hover:bg-red-700 active:bg-red-800 text-white'
-                                                        }`}
+                                                    className={`p-1 rounded cursor-pointer ${isMarkedForRemoval ? 'bg-teal-600 text-white' : 'bg-red-500 text-white'}`}
                                                     title={isMarkedForRemoval ? "Undo remove" : "Remove"}
                                                 >
                                                     {isMarkedForRemoval ? (
@@ -277,7 +258,7 @@ export function EditExpenseModal({ open, onClose, expense, onUpdate, isPending, 
                                             </div>
                                         </div>
                                         {isMarkedForRemoval && (
-                                            <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                                            <div className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
                                                 Remove
                                             </div>
                                         )}
@@ -293,16 +274,16 @@ export function EditExpenseModal({ open, onClose, expense, onUpdate, isPending, 
                     </div>
                 )}
 
-                {/* Add New Files Section */}
+                {/* Add New Files */}
                 <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-600 mb-2">
                         Add New Receipts / Attachments
                     </label>
                     <div className="flex items-center gap-3">
                         <label className="cursor-pointer">
-                            <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors">
-                                <ImageIcon className="w-4 h-4 text-slate-500" />
-                                <span className="text-sm text-slate-600">Add Files</span>
+                            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg">
+                                <ImageIcon className="w-4 h-4 text-gray-400" />
+                                <span className="text-xs text-gray-600">Add Files</span>
                             </div>
                             <input
                                 ref={fileInputRef}
@@ -313,22 +294,18 @@ export function EditExpenseModal({ open, onClose, expense, onUpdate, isPending, 
                                 className="hidden"
                             />
                         </label>
-                        <span className="text-xs text-slate-400">Images or PDF (max 5MB each)</span>
+                        <span className="text-xs text-gray-400">Images or PDF (max 5MB each)</span>
                     </div>
 
                     {selectedFiles.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-3">
                             {selectedFiles.map((file, index) => (
                                 <div key={index} className="relative w-20">
-                                    <div className="w-20 h-20 rounded-lg border border-slate-200 overflow-hidden bg-slate-50">
+                                    <div className="w-20 h-20 rounded-lg border border-gray-300 overflow-hidden bg-gray-50">
                                         {file.type.startsWith("image/") ? (
-                                            <img
-                                                src={filePreviews[index]}
-                                                alt={file.name}
-                                                className="w-full h-full object-cover"
-                                            />
+                                            <img src={filePreviews[index]} alt={file.name} className="w-full h-full object-cover" />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs p-2 text-center">
+                                            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs p-2 text-center">
                                                 {file.name.split(".").pop()?.toUpperCase()}
                                             </div>
                                         )}
@@ -336,14 +313,12 @@ export function EditExpenseModal({ open, onClose, expense, onUpdate, isPending, 
                                     <button
                                         type="button"
                                         onClick={() => removeNewFile(index)}
-                                        className="absolute -top-1.5 -right-1.5 p-0.5 bg-red-500 text-white rounded-full hover:bg-red-600 active:bg-red-700 transition-colors shadow-sm"
+                                        className="absolute -top-1.5 -right-1.5 p-0.5 bg-red-500 text-white rounded-full cursor-pointer"
                                         title="Remove"
                                     >
                                         <X className="w-3 h-3" />
                                     </button>
-                                    <p className="text-xs text-slate-400 truncate w-20 text-center mt-1">
-                                        {file.name}
-                                    </p>
+                                    <p className="text-xs text-gray-400 truncate w-20 text-center mt-1">{file.name}</p>
                                 </div>
                             ))}
                         </div>
@@ -359,17 +334,13 @@ export function EditExpenseModal({ open, onClose, expense, onUpdate, isPending, 
                 </FormField>
 
                 {status === "approved" && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                        <p className="text-sm text-green-700">Approving this expense will lock it from further edits.</p>
-                    </div>
+                    <Alert type="success">Approving this expense will lock it from further edits.</Alert>
                 )}
                 {status === "rejected" && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                        <p className="text-sm text-red-700">Rejected expenses cannot be edited further.</p>
-                    </div>
+                    <Alert type="error">Rejected expenses cannot be edited further.</Alert>
                 )}
 
-                <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <div className="flex justify-end gap-2 pt-2 border-t border-gray-300">
                     <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
                     <Button type="submit" loading={isPending}>Save Changes</Button>
                 </div>

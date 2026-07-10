@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth/auth.config";
 import connectDB from "@/lib/db/mongoose";
 import { Invoice } from "@/models/operations.model";
 import { Expense } from "@/models/operations.model";
-import { apiSuccess, apiError, hasPermission as checkPerm } from "@/lib/utils";
+import { apiSuccess, apiError } from "@/lib/utils";
 import { hasPermission } from "@/lib/auth/audit";
 
 export async function GET(req: NextRequest) {
@@ -15,12 +15,34 @@ export async function GET(req: NextRequest) {
   await connectDB();
   const sp = req.nextUrl.searchParams;
   const type = sp.get("type") || "summary";
-  const period = sp.get("period") || "monthly"; // daily, weekly, monthly, yearly
-  const from = sp.get("from") ? new Date(sp.get("from")!) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-  const to = sp.get("to") ? new Date(sp.get("to")!) : new Date();
+  const period = sp.get("period") || "monthly";
 
-  // Set to end of day
-  to.setHours(23, 59, 59, 999);
+  // Fix: Create dates in local timezone to avoid UTC shift
+  const fromStr = sp.get("from");
+  const toStr = sp.get("to");
+
+  let from: Date;
+  let to: Date;
+
+  if (fromStr) {
+    const [y, m, d] = fromStr.split("-").map(Number);
+    from = new Date(y, m - 1, d, 0, 0, 0, 0);
+  } else {
+    from = new Date(new Date().getFullYear(), new Date().getMonth(), 1, 0, 0, 0, 0);
+  }
+
+  if (toStr) {
+    const [y, m, d] = toStr.split("-").map(Number);
+    to = new Date(y, m - 1, d, 23, 59, 59, 999);
+  } else {
+    to = new Date();
+    to.setHours(23, 59, 59, 999);
+  }
+
+  // Helper to format display label
+  const formatDisplayLabel = (d: Date) => {
+    return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+  };
 
   // ============================================================
   // 1. REVENUE OVER TIME (Daily/Monthly)
@@ -51,7 +73,7 @@ export async function GET(req: NextRequest) {
   }
 
   // ============================================================
-  // 2. REVENUE BY CATEGORY (OPD, Pharmacy, Lab, Procedure)
+  // 2. REVENUE BY CATEGORY
   // ============================================================
   if (type === "revenue-by-category") {
     const data = await Invoice.aggregate([
@@ -125,7 +147,7 @@ export async function GET(req: NextRequest) {
   }
 
   // ============================================================
-  // 5. DAILY CASH FLOW (Revenue vs Expenses)
+  // 5. DAILY CASH FLOW
   // ============================================================
   if (type === "cash-flow") {
     const format = period === "daily" ? "%Y-%m-%d" : period === "monthly" ? "%Y-%m" : "%Y-%m-%d";
@@ -161,7 +183,6 @@ export async function GET(req: NextRequest) {
       ]),
     ]);
 
-    // Merge revenue and expenses by date
     const revenueMap = new Map(revenueData.map(r => [r._id, r.revenue]));
     const expenseMap = new Map(expenseData.map(e => [e._id, e.expenses]));
 
@@ -179,15 +200,13 @@ export async function GET(req: NextRequest) {
   }
 
   // ============================================================
-  // 6. SUMMARY REPORT (Main Dashboard)
+  // 6. SUMMARY REPORT
   // ============================================================
   if (type === "summary") {
-    // Calculate previous period for comparison
     const periodDiff = to.getTime() - from.getTime();
     const prevFrom = new Date(from.getTime() - periodDiff);
     const prevTo = new Date(to.getTime() - periodDiff);
 
-    // Current period stats
     const [currentRevenue, currentExpenses, currentInvoices, currentPayments] = await Promise.all([
       Invoice.aggregate([
         {
@@ -259,7 +278,6 @@ export async function GET(req: NextRequest) {
       ]),
     ]);
 
-    // Previous period stats
     const [prevRevenue, prevExpenses] = await Promise.all([
       Invoice.aggregate([
         {
@@ -301,7 +319,7 @@ export async function GET(req: NextRequest) {
 
     const profit = revenue - expenses;
     const prevProfit = prevRevenueTotal - prevExpensesTotal;
-    const profitChange = prevProfit > 0 ? ((profit - prevProfit) / prevProfit) * 100 : 0;
+    const profitChange = prevProfit !== 0 ? ((profit - prevProfit) / Math.abs(prevProfit)) * 100 : 0;
 
     const paymentMethods = currentPayments.map(p => ({
       method: p._id,
@@ -310,7 +328,6 @@ export async function GET(req: NextRequest) {
       percentage: revenue > 0 ? (p.total / revenue) * 100 : 0,
     }));
 
-    // Top revenue categories
     const revenueByCategory = await Invoice.aggregate([
       {
         $match: {
@@ -329,7 +346,6 @@ export async function GET(req: NextRequest) {
       { $limit: 5 },
     ]);
 
-    // Recent transactions (last 10)
     const recentTransactions = await Invoice.aggregate([
       {
         $match: {
@@ -337,12 +353,8 @@ export async function GET(req: NextRequest) {
           status: { $in: ["paid", "partial"] },
         },
       },
-      {
-        $sort: { createdAt: -1 },
-      },
-      {
-        $limit: 10,
-      },
+      { $sort: { createdAt: -1 } },
+      { $limit: 10 },
       {
         $lookup: {
           from: "patients",
@@ -368,7 +380,7 @@ export async function GET(req: NextRequest) {
       period: {
         from,
         to,
-        label: `${from.toLocaleDateString()} - ${to.toLocaleDateString()}`,
+        label: `${formatDisplayLabel(from)} - ${formatDisplayLabel(to)}`,
       },
       summary: {
         revenue,
@@ -392,7 +404,7 @@ export async function GET(req: NextRequest) {
   // 7. TOP PERFORMING
   // ============================================================
   if (type === "top") {
-    const category = sp.get("category") || "patients"; // patients, doctors, services
+    const category = sp.get("category") || "patients";
 
     if (category === "doctors") {
       const data = await Invoice.aggregate([
@@ -418,9 +430,7 @@ export async function GET(req: NextRequest) {
             as: "doctor",
           },
         },
-        {
-          $unwind: "$doctor",
-        },
+        { $unwind: "$doctor" },
         {
           $project: {
             name: { $concat: ["$doctor.firstName", " ", "$doctor.lastName"] },
@@ -443,9 +453,7 @@ export async function GET(req: NextRequest) {
             status: { $in: ["paid", "partial"] },
           },
         },
-        {
-          $unwind: "$items",
-        },
+        { $unwind: "$items" },
         {
           $group: {
             _id: "$items.category",
@@ -460,7 +468,6 @@ export async function GET(req: NextRequest) {
       return apiSuccess(data);
     }
 
-    // Top patients (by revenue)
     const data = await Invoice.aggregate([
       {
         $match: {
@@ -484,9 +491,7 @@ export async function GET(req: NextRequest) {
           as: "patient",
         },
       },
-      {
-        $unwind: "$patient",
-      },
+      { $unwind: "$patient" },
       {
         $project: {
           name: { $concat: ["$patient.firstName", " ", "$patient.lastName"] },
