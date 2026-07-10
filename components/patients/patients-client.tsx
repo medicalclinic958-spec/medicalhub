@@ -1,3 +1,4 @@
+// components/patients/patients-client.tsx
 "use client";
 
 import { useState } from "react";
@@ -5,16 +6,17 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import axios from "axios";
-import { Search, Plus, Eye, Edit2, Filter } from "lucide-react";
+import { Search, Plus, Filter, ChevronDown, X } from "lucide-react";
 import {
-  Card, CardBody, Table, Th, Td, StatusBadge,
+  Card, Table, Th, Td, StatusBadge,
   Button, Modal, FormField, Input, Select, EmptyState,
   Pagination, Badge, Alert,
 } from "@/components/ui";
 import { createPatientSchema, CreatePatientInput } from "@/lib/validations";
-import { formatDate } from "@/lib/utils";
+import { formatDate, cn } from "@/lib/utils";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 
 interface Patient {
   _id: string;
@@ -40,17 +42,19 @@ export function PatientsClient() {
   const [statusFilter, setStatusFilter] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [createError, setCreateError] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const perms = session?.user.permissions || [];
   const isSA = session?.user.isSuperAdmin;
   const canCreate = isSA || perms.includes("patients:create");
 
+  const activeFiltersCount = [statusFilter].filter(Boolean).length;
 
   const { data, isLoading } = useQuery({
     queryKey: ["patients", page, search, statusFilter],
     queryFn: () =>
       axios
-        .get("/api/patients", { params: { page, limit: 20, search, status: statusFilter } })
+        .get("/api/patients", { params: { page, limit: 20, search: search || undefined, status: statusFilter || undefined } })
         .then((r) => r.data),
   });
 
@@ -69,27 +73,12 @@ export function PatientsClient() {
   const createMutation = useMutation({
     mutationFn: (d: CreatePatientInput) => {
       const cleanedData = { ...d };
-
-      // Remove empty arrays
       if (cleanedData.allergies?.length === 0) delete cleanedData.allergies;
       if (cleanedData.chronicDiseases?.length === 0) delete cleanedData.chronicDiseases;
-
-      // Remove empty nested objects
-      if (cleanedData.emergencyContact && !Object.values(cleanedData.emergencyContact).some(v => v)) {
-        delete cleanedData.emergencyContact;
-      }
-
-      if (cleanedData.insuranceDetails && !Object.values(cleanedData.insuranceDetails).some(v => v)) {
-        delete cleanedData.insuranceDetails;
-      }
-
-      if (cleanedData.address && !Object.values(cleanedData.address).some(v => v && v !== "")) {
-        delete cleanedData.address;
-      }
-
-      // Remove empty bloodGroup
+      if (cleanedData.emergencyContact && !Object.values(cleanedData.emergencyContact).some(v => v)) delete cleanedData.emergencyContact;
+      if (cleanedData.insuranceDetails && !Object.values(cleanedData.insuranceDetails).some(v => v)) delete cleanedData.insuranceDetails;
+      if (cleanedData.address && !Object.values(cleanedData.address).some(v => v && v !== "")) delete cleanedData.address;
       if (!cleanedData.bloodGroup) delete cleanedData.bloodGroup;
-
       return axios.post("/api/patients", cleanedData);
     },
     onSuccess: () => {
@@ -97,65 +86,103 @@ export function PatientsClient() {
       setCreateOpen(false);
       reset();
       setCreateError("");
+      toast.success("Patient created successfully!");
     },
     onError: (e: unknown) => {
       const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed to create patient";
       setCreateError(msg);
+      toast.error(msg);
     },
   });
 
-  const allergiesValue = watch("allergies") || [];
-  const chronicDiseasesValue = watch("chronicDiseases") || [];
-
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Patients</h1>
-          <p className="text-sm text-slate-500">
-            {pagination?.total ?? 0} total patients
+          <h1 className="text-lg font-semibold text-gray-900">Patients</h1>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {pagination?.total ?? 0} patient{pagination?.total !== 1 ? "s" : ""}
           </p>
         </div>
         {canCreate && (
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="w-4 h-4" /> New Patient
+          <Button onClick={() => setCreateOpen(true)} size="sm">
+            <Plus className="w-3.5 h-3.5" /> New Patient
           </Button>
         )}
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardBody className="py-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-48">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                placeholder="Search name, phone, ID..."
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                className="pl-9"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-slate-400" />
-              <Select
-                value={statusFilter}
-                onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-                className="w-36"
-              >
-                <option value="">All statuses</option>
-                <option value="active">Active</option>
-                <option value="archived">Archived</option>
-                <option value="deceased">Deceased</option>
-              </Select>
-            </div>
-          </div>
-        </CardBody>
-      </Card>
+      {/* Search + Filter Toggle */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by name, phone, or ID..."
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(1); }}
+            className="w-full pl-9 pr-4 py-2 text-xs rounded-lg border border-gray-300 
+                       bg-white placeholder:text-gray-400 text-gray-600
+                       focus:outline-none focus:border-teal-600"
+          />
+        </div>
+        <button
+          onClick={() => setFiltersOpen(!filtersOpen)}
+          className={cn(
+            "inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border cursor-pointer shrink-0",
+            filtersOpen || activeFiltersCount > 0
+              ? "bg-teal-600 text-white border-teal-600"
+              : "bg-white border-gray-300 text-gray-600"
+          )}
+        >
+          <Filter className="w-3.5 h-3.5" />
+          Filters
+          {activeFiltersCount > 0 && (
+            <span className="bg-white text-teal-600 text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-semibold">
+              {activeFiltersCount}
+            </span>
+          )}
+          <ChevronDown className={cn("w-3 h-3", filtersOpen && "rotate-180")} />
+        </button>
+      </div>
 
-      {/* Table */}
-      <Card>
+      {/* Active Filter Chips */}
+      {activeFiltersCount > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {statusFilter && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-200 text-xs text-teal-700 capitalize">
+              {statusFilter}
+              <button onClick={() => { setStatusFilter(""); setPage(1); }} className="cursor-pointer">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          <button
+            onClick={() => { setStatusFilter(""); setPage(1); }}
+            className="text-xs text-gray-400 cursor-pointer"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
+
+      {/* Expanded Filters */}
+      {filtersOpen && (
+        <div className="bg-gray-50 rounded-lg border border-gray-300 p-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Status</label>
+            <Select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
+              <option value="">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="archived">Archived</option>
+              <option value="deceased">Deceased</option>
+            </Select>
+          </div>
+        </div>
+      )}
+
+      {/* Desktop Table */}
+      <Card className="hidden md:block overflow-x-auto">
         <Table>
           <thead>
             <tr>
@@ -175,9 +202,7 @@ export function PatientsClient() {
               [...Array(8)].map((_, i) => (
                 <tr key={i}>
                   {[...Array(9)].map((_, j) => (
-                    <Td key={j}>
-                      <div className="h-4 bg-slate-100 rounded animate-pulse" />
-                    </Td>
+                    <Td key={j}><div className="h-4 bg-gray-100 rounded" /></Td>
                   ))}
                 </tr>
               ))
@@ -187,71 +212,104 @@ export function PatientsClient() {
                   <EmptyState
                     title="No patients found"
                     description={search ? `No results for "${search}"` : "Add your first patient to get started."}
-                    action={
-                      canCreate ? (
-                        <Button size="sm" onClick={() => setCreateOpen(true)}>
-                          <Plus className="w-3.5 h-3.5" /> Add Patient
-                        </Button>
-                      ) : undefined
-                    }
+                    action={canCreate ? (
+                      <Button size="sm" onClick={() => setCreateOpen(true)}>
+                        <Plus className="w-3.5 h-3.5" /> Add Patient
+                      </Button>
+                    ) : undefined}
                   />
                 </td>
               </tr>
             ) : (
               patients.map((p) => (
-                <tr key={p._id} className="hover:bg-slate-50 transition-colors">
+                <tr key={p._id}>
                   <Td>
-                    <span className="font-mono text-xs font-semibold text-blue-600">
-                      {p.patientId}
-                    </span>
+                    <span className="font-medium text-gray-900">{p.patientId}</span>
                   </Td>
                   <Td>
-                    <div className="font-medium text-slate-800">{p.fullName || `${p.firstName} ${p.lastName}`}</div>
+                    <div className="font-medium text-gray-900">{p.fullName || `${p.firstName} ${p.lastName}`}</div>
                   </Td>
-                  <Td className="capitalize">{p.gender}</Td>
-                  <Td>{p.dateOfBirth ? formatDate(p.dateOfBirth) : "—"}</Td>
-                  <Td>{p.phone}</Td>
+                  <Td className="capitalize text-gray-600">{p.gender}</Td>
+                  <Td className="text-gray-500">{p.dateOfBirth ? formatDate(p.dateOfBirth) : "—"}</Td>
+                  <Td className="text-gray-600">{p.phone}</Td>
                   <Td>
-                    {p.bloodGroup ? (
-                      <Badge variant="info">{p.bloodGroup}</Badge>
-                    ) : "—"}
+                    {p.bloodGroup ? <Badge variant="outline">{p.bloodGroup}</Badge> : <span className="text-gray-300">—</span>}
                   </Td>
                   <Td><StatusBadge status={p.status} /></Td>
-                  <Td className="text-slate-400">{formatDate(p.createdAt)}</Td>
+                  <Td className="text-gray-400">{formatDate(p.createdAt)}</Td>
                   <Td>
-                    <div className="flex items-center gap-1">
-                      <Link href={`/patients/${p._id}`}>
-                        <button className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-all">
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                      </Link>
-                    </div>
+                    <Link href={`/patients/${p._id}`}>
+                      <Button size="sm">View</Button>
+                    </Link>
                   </Td>
                 </tr>
               ))
             )}
           </tbody>
         </Table>
-
         {pagination && pagination.totalPages > 1 && (
-          <div className="px-4 py-3 border-t border-slate-100 flex justify-end">
+          <div className="px-4 py-3 border-t border-gray-300 flex justify-end">
             <Pagination page={page} totalPages={pagination.totalPages} onPage={setPage} />
           </div>
         )}
       </Card>
 
-      {/* Create Patient Modal */}
-      <Modal open={createOpen} onClose={() => { setCreateOpen(false); reset(); setCreateError(""); }} title="New Patient" size="lg">
-        {createError && (
-          <div className="mb-4">
-            <Alert type="error">{createError}</Alert>
+      {/* Mobile Cards */}
+      <div className="md:hidden divide-y divide-gray-100 border border-gray-300 rounded-lg bg-white">
+        {isLoading ? (
+          [...Array(5)].map((_, i) => (
+            <div key={i} className="p-3 flex items-center justify-between">
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-100 rounded w-28" />
+                <div className="h-3 bg-gray-100 rounded w-20" />
+              </div>
+              <div className="h-7 bg-gray-100 rounded w-14" />
+            </div>
+          ))
+        ) : patients.length === 0 ? (
+          <EmptyState
+            title="No patients found"
+            description={search ? `No results for "${search}"` : "Add your first patient."}
+            action={canCreate ? (
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
+                <Plus className="w-3.5 h-3.5" /> Add Patient
+              </Button>
+            ) : undefined}
+          />
+        ) : (
+          patients.map((p) => (
+            <div key={p._id} className="flex items-center justify-between p-3 gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-900">
+                    {p.fullName || `${p.firstName} ${p.lastName}`}
+                  </span>
+                  <StatusBadge status={p.status} />
+                </div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xs text-gray-500">{p.patientId}</span>
+                  <span className="text-xs text-gray-400">•</span>
+                  <span className="text-xs text-gray-500">{p.phone}</span>
+                </div>
+              </div>
+              <Link href={`/patients/${p._id}`}>
+                <Button size="sm">View</Button>
+              </Link>
+            </div>
+          ))
+        )}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="px-4 py-3 flex justify-center">
+            <Pagination page={page} totalPages={pagination.totalPages} onPage={setPage} />
           </div>
         )}
-        <form onSubmit={handleSubmit((d) => {
-          return createMutation.mutate(d)
-        })} className="space-y-4">
-          {/* Basic Info */}
-          <div className="grid grid-cols-2 gap-4">
+      </div>
+
+      {/* Create Patient Modal */}
+      <Modal open={createOpen} onClose={() => { setCreateOpen(false); reset(); setCreateError(""); }} title="New Patient" size="lg">
+        {createError && <Alert type="error">{createError}</Alert>}
+        <form onSubmit={handleSubmit((d) => createMutation.mutate(d))} className="space-y-4 mt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="First Name" required error={errors.firstName?.message}>
               <Input {...register("firstName")} error={!!errors.firstName} placeholder="John" />
             </FormField>
@@ -260,7 +318,7 @@ export function PatientsClient() {
             </FormField>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="Gender" required error={errors.gender?.message}>
               <Select {...register("gender")} error={!!errors.gender}>
                 <option value="">Select gender</option>
@@ -274,7 +332,7 @@ export function PatientsClient() {
             </FormField>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="Phone" required error={errors.phone?.message}>
               <Input {...register("phone")} error={!!errors.phone} placeholder="+92 300 1234567" />
             </FormField>
@@ -283,56 +341,54 @@ export function PatientsClient() {
             </FormField>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Blood Group" error={errors.bloodGroup?.message}>
-              <Select {...register("bloodGroup")}>
-                <option value="">Unknown</option>
-                {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((bg) => (
-                  <option key={bg} value={bg}>{bg}</option>
-                ))}
-              </Select>
-            </FormField>
-          </div>
+          <FormField label="Blood Group">
+            <Select {...register("bloodGroup")}>
+              <option value="">Unknown</option>
+              {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((bg) => (
+                <option key={bg} value={bg}>{bg}</option>
+              ))}
+            </Select>
+          </FormField>
 
-          {/* Address Section */}
-          <div className="border-t border-slate-100 pt-4">
-            <h4 className="font-medium text-slate-700 mb-3">Address</h4>
-            <div className="grid grid-cols-2 gap-4">
-              <FormField label="Street" error={errors.address?.street?.message}>
+          {/* Address */}
+          <div className="border-t border-gray-200 pt-4">
+            <h4 className="text-xs font-semibold text-gray-900 mb-3">Address</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField label="Street">
                 <Input {...register("address.street")} placeholder="Street address" />
               </FormField>
-              <FormField label="City" error={errors.address?.city?.message}>
+              <FormField label="City">
                 <Input {...register("address.city")} placeholder="City" />
               </FormField>
-              <FormField label="State" error={errors.address?.state?.message}>
+              <FormField label="State">
                 <Input {...register("address.state")} placeholder="State/Province" />
               </FormField>
-              <FormField label="Country" error={errors.address?.country?.message}>
+              <FormField label="Country">
                 <Input {...register("address.country")} placeholder="Country" />
               </FormField>
             </div>
           </div>
 
           {/* Emergency Contact */}
-          <div className="border-t border-slate-100 pt-4">
-            <h4 className="font-medium text-slate-700 mb-3">Emergency Contact</h4>
-            <div className="grid grid-cols-2 gap-4">
-              <FormField label="Name" error={errors.emergencyContact?.name?.message}>
+          <div className="border-t border-gray-200 pt-4">
+            <h4 className="text-xs font-semibold text-gray-900 mb-3">Emergency Contact</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField label="Name">
                 <Input {...register("emergencyContact.name")} placeholder="Full name" />
               </FormField>
               <FormField label="Relationship">
                 <Input {...register("emergencyContact.relationship")} placeholder="e.g., Spouse, Parent" />
               </FormField>
-              <FormField label="Phone" error={errors.emergencyContact?.phone?.message}>
+              <FormField label="Phone">
                 <Input {...register("emergencyContact.phone")} placeholder="Emergency phone number" />
               </FormField>
             </div>
           </div>
 
           {/* Medical Information */}
-          <div className="border-t border-slate-100 pt-4">
-            <h4 className="font-medium text-slate-700 mb-3">Medical Information</h4>
-            <div className="grid grid-cols-2 gap-4">
+          <div className="border-t border-gray-200 pt-4">
+            <h4 className="text-xs font-semibold text-gray-900 mb-3">Medical Information</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField label="Allergies (comma-separated)">
                 <Input
                   defaultValue={watch("allergies")?.join(", ") || ""}
@@ -343,7 +399,6 @@ export function PatientsClient() {
                   placeholder="e.g., Penicillin, Nuts"
                 />
               </FormField>
-
               <FormField label="Chronic Diseases (comma-separated)">
                 <Input
                   defaultValue={watch("chronicDiseases")?.join(", ") || ""}
@@ -355,7 +410,7 @@ export function PatientsClient() {
                 />
               </FormField>
             </div>
-            <div className="grid grid-cols-2 gap-4 mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
               <FormField label="Insurance Provider">
                 <Input {...register("insuranceDetails.provider")} placeholder="Insurance company" />
               </FormField>
@@ -372,25 +427,23 @@ export function PatientsClient() {
           </div>
 
           {/* Notes */}
-          <FormField label="Notes" error={errors.notes?.message}>
+          <FormField label="Notes">
             <textarea
               {...register("notes")}
               rows={2}
               placeholder="Any relevant notes..."
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 text-xs resize-none focus:outline-none focus:border-teal-600 text-gray-700 placeholder:text-gray-400"
             />
           </FormField>
 
-          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+          <div className="flex justify-end gap-2 pt-2 border-t border-gray-300">
             <Button type="button" variant="secondary" onClick={() => { setCreateOpen(false); reset(); setCreateError(""); }}>
               Cancel
             </Button>
-            <Button type="submit" loading={createMutation.isPending}>
-              Create Patient
-            </Button>
+            <Button type="submit" loading={createMutation.isPending}>Create Patient</Button>
           </div>
         </form>
       </Modal>
-    </div >
+    </div>
   );
 }

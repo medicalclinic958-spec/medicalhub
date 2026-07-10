@@ -1,19 +1,21 @@
+// components/appointments/appointments-client.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import axios from "axios";
-import { Plus, Calendar, Filter, Eye } from "lucide-react";
+import { Plus, Search, Filter, ChevronDown, X } from "lucide-react";
 import {
-  Card, CardBody, Table, Th, Td, StatusBadge, Button,
+  Card, Table, Th, Td, StatusBadge, Button,
   Modal, FormField, Input, Select, EmptyState, Pagination, Alert,
 } from "@/components/ui";
 import { createAppointmentSchema, CreateAppointmentInput } from "@/lib/validations";
-import { formatDate } from "@/lib/utils";
+import { formatDate, cn } from "@/lib/utils";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { toast } from "sonner";
 
 interface Appointment {
   _id: string;
@@ -40,19 +42,25 @@ export function AppointmentsClient() {
   const { data: session } = useSession();
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [createError, setCreateError] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const perms = session?.user.permissions || [];
   const isSA = session?.user.isSuperAdmin;
   const canCreate = isSA || perms.includes("appointments:create");
 
+  const activeFiltersCount = [statusFilter, dateFilter].filter(Boolean).length;
+
   const { data, isLoading } = useQuery({
-    queryKey: ["appointments", page, statusFilter, dateFilter],
+    queryKey: ["appointments", page, search, statusFilter, dateFilter],
     queryFn: () => {
-      const params: any = { page, limit: 25, status: statusFilter };
+      const params: any = { page, limit: 25 };
+      if (search) params.search = search;
+      if (statusFilter) params.status = statusFilter;
       if (dateFilter) params.date = dateFilter;
       return axios.get("/api/appointments", { params }).then((r) => r.data);
     },
@@ -76,15 +84,8 @@ export function AppointmentsClient() {
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<CreateAppointmentInput>({
     resolver: zodResolver(createAppointmentSchema),
     defaultValues: {
-      patient: "",
-      doctor: "",
-      type: "opd",
-      scheduledDate: dateFilter,
-      scheduledTime: "",
-      duration: 30,
-      consultationFee: 0,
-      chiefComplaint: "",
-      notes: "",
+      patient: "", doctor: "", type: "opd", scheduledDate: dateFilter,
+      scheduledTime: "", duration: 30, consultationFee: 0, chiefComplaint: "", notes: "",
     },
   });
 
@@ -95,47 +96,102 @@ export function AppointmentsClient() {
       setCreateOpen(false);
       reset();
       setCreateError("");
+      toast.success("Appointment booked successfully!");
     },
     onError: (e: unknown) => {
       const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed to create appointment";
       setCreateError(msg);
+      toast.error(msg);
     },
   });
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Appointments</h1>
-          <p className="text-sm text-slate-500">{pagination?.total ?? 0} appointments</p>
+          <h1 className="text-lg font-semibold text-gray-900">Appointments</h1>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {pagination?.total ?? 0} appointment{pagination?.total !== 1 ? "s" : ""}
+          </p>
         </div>
         {canCreate && (
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="w-4 h-4" /> Book Appointment
+          <Button onClick={() => setCreateOpen(true)} size="sm">
+            <Plus className="w-3.5 h-3.5" /> Book Appointment
           </Button>
         )}
       </div>
 
-      <Card>
-        <CardBody className="py-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-slate-400" />
-              <Input
-                type="date"
-                value={dateFilter}
-                onChange={(e) => { setDateFilter(e.target.value); setPage(1); }}
-                className="w-40"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-slate-400" />
-              <Select
-                value={statusFilter}
-                onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-                className="w-44"
-              >
-                <option value="">All statuses</option>
+      {/* Search + Filter Toggle */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by patient name, doctor name, or ID..."
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(1); }}
+            className="w-full pl-9 pr-4 py-2 text-xs rounded-lg border border-gray-300 
+                       bg-white placeholder:text-gray-400 text-gray-600
+                       focus:outline-none focus:border-teal-600"
+          />
+        </div>
+        <button
+          onClick={() => setFiltersOpen(!filtersOpen)}
+          className={cn(
+            "inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border cursor-pointer shrink-0",
+            filtersOpen || activeFiltersCount > 0
+              ? "bg-teal-600 text-white border-teal-600"
+              : "bg-white border-gray-300 text-gray-600"
+          )}
+        >
+          <Filter className="w-3.5 h-3.5" />
+          Filters
+          {activeFiltersCount > 0 && (
+            <span className="bg-white text-teal-600 text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-semibold">
+              {activeFiltersCount}
+            </span>
+          )}
+          <ChevronDown className={cn("w-3 h-3", filtersOpen && "rotate-180")} />
+        </button>
+      </div>
+
+      {/* Active Filter Chips */}
+      {activeFiltersCount > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {statusFilter && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-200 text-xs text-teal-700 capitalize">
+              {statusFilter.replace(/_/g, " ")}
+              <button onClick={() => { setStatusFilter(""); setPage(1); }} className="cursor-pointer">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {dateFilter && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-200 text-xs text-teal-700">
+              {dateFilter}
+              <button onClick={() => { setDateFilter(""); setPage(1); }} className="cursor-pointer">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          <button
+            onClick={() => { setStatusFilter(""); setDateFilter(""); setPage(1); }}
+            className="text-xs text-gray-400 cursor-pointer"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
+
+      {/* Expanded Filters */}
+      {filtersOpen && (
+        <div className="bg-gray-50 rounded-lg border border-gray-300 p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Status</label>
+              <Select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
+                <option value="">All Statuses</option>
                 <option value="scheduled">Scheduled</option>
                 <option value="checked_in">Checked In</option>
                 <option value="in_consultation">In Consultation</option>
@@ -144,11 +200,20 @@ export function AppointmentsClient() {
                 <option value="no_show">No Show</option>
               </Select>
             </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Date</label>
+              <Input
+                type="date"
+                value={dateFilter}
+                onChange={e => { setDateFilter(e.target.value); setPage(1); }}
+              />
+            </div>
           </div>
-        </CardBody>
-      </Card>
+        </div>
+      )}
 
-      <Card>
+      {/* Desktop Table */}
+      <Card className="hidden md:block overflow-x-auto">
         <Table>
           <thead>
             <tr>
@@ -167,7 +232,7 @@ export function AppointmentsClient() {
               [...Array(8)].map((_, i) => (
                 <tr key={i}>
                   {[...Array(8)].map((_, j) => (
-                    <Td key={j}><div className="h-4 bg-slate-100 rounded animate-pulse" /></Td>
+                    <Td key={j}><div className="h-4 bg-gray-100 rounded" /></Td>
                   ))}
                 </tr>
               ))
@@ -187,35 +252,31 @@ export function AppointmentsClient() {
               </tr>
             ) : (
               appointments.map((a) => (
-                <tr key={a._id} className="hover:bg-slate-50 transition-colors">
-                  <Td><span className="font-mono text-xs font-semibold text-blue-600">{a.appointmentId}</span></Td>
+                <tr key={a._id}>
                   <Td>
-                    <Link href={`/patients/${a.patient?._id}`}>
-                      <div className="font-medium text-slate-800 hover:text-blue-600 transition-colors cursor-pointer">
-                        {a.patient?.firstName} {a.patient?.lastName}
-                      </div>
-                    </Link>
-                    <div className="text-xs text-slate-400">{a.patient?.patientId}</div>
+                    <span className="font-medium text-gray-900">{a.appointmentId}</span>
                   </Td>
                   <Td>
-                    <Link href={`/doctors/${a.doctor?._id}`}>
-                      <div className="text-slate-700 hover:text-blue-600 transition-colors cursor-pointer">
-                        Dr. {a.doctor?.user?.firstName} {a.doctor?.user?.lastName}
-                      </div>
+                    <Link href={`/patients/${a.patient?._id}`} className="text-gray-900 font-medium">
+                      {a.patient?.firstName} {a.patient?.lastName}
+                    </Link>
+                    <div className="text-xs text-gray-400">{a.patient?.patientId}</div>
+                  </Td>
+                  <Td>
+                    <Link href={`/doctors/${a.doctor?._id}`} className="text-gray-600">
+                      Dr. {a.doctor?.user?.firstName} {a.doctor?.user?.lastName}
                     </Link>
                   </Td>
                   <Td>
-                    <div className="text-slate-700">{formatDate(a.scheduledDate)}</div>
-                    <div className="text-xs text-slate-400">{a.scheduledTime} ({a.duration} min)</div>
+                    <div className="text-gray-600">{formatDate(a.scheduledDate)}</div>
+                    <div className="text-xs text-gray-400">{a.scheduledTime} ({a.duration} min)</div>
                   </Td>
-                  <Td className="capitalize">{a.type?.replace(/_/g, " ")}</Td>
+                  <Td className="capitalize text-gray-600">{a.type?.replace(/_/g, " ")}</Td>
                   <Td><StatusBadge status={a.status} /></Td>
-                  <Td>PKR {a.consultationFee?.toLocaleString()}</Td>
+                  <Td className="text-gray-600">PKR {a.consultationFee?.toLocaleString()}</Td>
                   <Td>
                     <Link href={`/appointments/${a._id}`}>
-                      <button className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-all">
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
+                      <Button size="sm">View</Button>
                     </Link>
                   </Td>
                 </tr>
@@ -224,23 +285,76 @@ export function AppointmentsClient() {
           </tbody>
         </Table>
         {pagination && pagination.totalPages > 1 && (
-          <div className="px-4 py-3 border-t border-slate-100 flex justify-end">
+          <div className="px-4 py-3 border-t border-gray-300 flex justify-end">
             <Pagination page={page} totalPages={pagination.totalPages} onPage={setPage} />
           </div>
         )}
       </Card>
 
+      {/* Mobile Cards */}
+      <div className="md:hidden divide-y divide-gray-100 border border-gray-300 rounded-lg bg-white">
+        {isLoading ? (
+          [...Array(5)].map((_, i) => (
+            <div key={i} className="p-3 flex items-center justify-between">
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-100 rounded w-28" />
+                <div className="h-3 bg-gray-100 rounded w-20" />
+              </div>
+              <div className="h-7 bg-gray-100 rounded w-14" />
+            </div>
+          ))
+        ) : appointments.length === 0 ? (
+          <EmptyState
+            title="No appointments"
+            description="No appointments found for the selected filters."
+            action={canCreate ? (
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
+                <Plus className="w-3.5 h-3.5" /> Book Appointment
+              </Button>
+            ) : undefined}
+          />
+        ) : (
+          appointments.map((a) => (
+            <div key={a._id} className="flex items-center justify-between p-3 gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-900">
+                    {a.patient?.firstName} {a.patient?.lastName}
+                  </span>
+                  <StatusBadge status={a.status} />
+                </div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xs text-gray-500">
+                    Dr. {a.doctor?.user?.firstName} {a.doctor?.user?.lastName}
+                  </span>
+                </div>
+                <div className="text-xs text-gray-400 mt-0.5">
+                  {formatDate(a.scheduledDate)} • {a.scheduledTime}
+                </div>
+              </div>
+              <Link href={`/appointments/${a._id}`}>
+                <Button size="sm">View</Button>
+              </Link>
+            </div>
+          ))
+        )}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="px-4 py-3 flex justify-center">
+            <Pagination page={page} totalPages={pagination.totalPages} onPage={setPage} />
+          </div>
+        )}
+      </div>
+
+      {/* Create Modal */}
       <Modal open={createOpen} onClose={() => { setCreateOpen(false); reset(); setCreateError(""); }} title="Book Appointment" size="lg">
         {createError && <Alert type="error">{createError}</Alert>}
         <form onSubmit={handleSubmit((d) => createMutation.mutate(d as any))} className="space-y-4 mt-2">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="Patient" required error={errors.patient?.message}>
               <Select {...register("patient")} error={!!errors.patient}>
                 <option value="">Select patient</option>
                 {patients.map((p: { _id: string; firstName: string; lastName: string; patientId: string }) => (
-                  <option key={p._id} value={p._id}>
-                    {p.firstName} {p.lastName} ({p.patientId})
-                  </option>
+                  <option key={p._id} value={p._id}>{p.firstName} {p.lastName} ({p.patientId})</option>
                 ))}
               </Select>
             </FormField>
@@ -251,21 +365,17 @@ export function AppointmentsClient() {
                 onChange={(e) => {
                   const doctorId = e.target.value;
                   const doctor = doctors.find((d: any) => d._id === doctorId);
-                  if (doctor?.consultationFee) {
-                    setValue("consultationFee", doctor.consultationFee);
-                  }
+                  if (doctor?.consultationFee) setValue("consultationFee", doctor.consultationFee);
                 }}
               >
                 <option value="">Select doctor</option>
-                {doctors.map((d: { _id: string; user: { firstName: string; lastName: string }; doctorId: string; consultationFee?: number }) => (
-                  <option key={d._id} value={d._id}>
-                    Dr. {d.user?.firstName} {d.user?.lastName} ({d.doctorId})
-                  </option>
+                {doctors.map((d: any) => (
+                  <option key={d._id} value={d._id}>Dr. {d.user?.firstName} {d.user?.lastName} ({d.doctorId})</option>
                 ))}
               </Select>
             </FormField>
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <FormField label="Date" required error={errors.scheduledDate?.message}>
               <Input type="date" {...register("scheduledDate")} error={!!errors.scheduledDate} />
             </FormField>
@@ -275,25 +385,16 @@ export function AppointmentsClient() {
                 {TIME_SLOTS.map((t) => <option key={t} value={t}>{t}</option>)}
               </Select>
             </FormField>
-            <FormField label="Duration (mins)" error={errors.duration?.message}>
+            <FormField label="Duration (mins)">
               <Select {...register("duration", { valueAsNumber: true })}>
-                <option value={5}>5 min</option>
-                <option value={10}>10 min</option>
-                <option value={15}>15 min</option>
-                <option value={20}>20 min</option>
-                <option value={25}>25 min</option>
-                <option value={30}>30 min</option>
-                <option value={35}>35 min</option>
-                <option value={40}>40 min</option>
-                <option value={45}>45 min</option>
-                <option value={50}>50 min</option>
-                <option value={55}>55 min</option>
-                <option value={60}>60 min</option>
+                {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60].map(d => (
+                  <option key={d} value={d}>{d} min</option>
+                ))}
               </Select>
             </FormField>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Type" error={errors.type?.message}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FormField label="Type">
               <Select {...register("type")}>
                 <option value="opd">OPD</option>
                 <option value="follow_up">Follow Up</option>
@@ -305,16 +406,14 @@ export function AppointmentsClient() {
               <Input type="number" {...register("consultationFee", { valueAsNumber: true })} placeholder="0" disabled />
             </FormField>
           </div>
-          <FormField label="Chief Complaint" error={errors.chiefComplaint?.message}>
+          <FormField label="Chief Complaint">
             <Input {...register("chiefComplaint")} placeholder="Reason for visit..." />
           </FormField>
-          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+          <div className="flex justify-end gap-2 pt-2 border-t border-gray-300">
             <Button type="button" variant="secondary" onClick={() => { setCreateOpen(false); reset(); }}>
               Cancel
             </Button>
-            <Button type="submit" loading={createMutation.isPending}>
-              Book Appointment
-            </Button>
+            <Button type="submit" loading={createMutation.isPending}>Book Appointment</Button>
           </div>
         </form>
       </Modal>

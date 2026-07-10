@@ -11,6 +11,7 @@ import { Providers } from "@/components/providers";
 import { Poppins } from "next/font/google";
 import { Toaster } from "sonner";
 import { SidebarProvider } from "@/components/sidebar-context";
+import { ThemeProvider } from "next-themes";
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -33,25 +34,38 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   console.log("   🔑 Password: Admin@123456");
   return (
     <html lang="en" className={poppins.variable}>
+      <head>
+        <script dangerouslySetInnerHTML={{
+          __html: `
+    (function() {
+      if (localStorage.getItem("theme") === "dark") {
+        document.documentElement.classList.add("dark");
+      }
+    })();
+  `,
+        }} />
+      </head>
       <body className="antialiased">
-        <SidebarProvider>
-          <Providers>{children}</Providers>
-          <Toaster
-            position="top-right"
-            expand={false}
-            richColors
-            closeButton
-            toastOptions={{
-              style: {
-                background: '#0d9488',
-                color: '#ffffff',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '12px',
-                fontSize: '14px',
-              },
-            }}
-          />
-        </SidebarProvider>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+          <SidebarProvider>
+            <Providers>{children}</Providers>
+            <Toaster
+              position="top-right"
+              expand={false}
+              richColors
+              closeButton
+              toastOptions={{
+                style: {
+                  background: '#0d9488',
+                  color: '#ffffff',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px',
+                  fontSize: '14px',
+                },
+              }}
+            />
+          </SidebarProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

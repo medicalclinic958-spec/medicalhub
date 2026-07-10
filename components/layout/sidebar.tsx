@@ -37,7 +37,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Suppliers", href: "/supplier", icon: Building2, permission: "pharmacy:view", category: "Lab & Pharmacy" },
   { label: "Staff", href: "/staff", icon: Users, permission: "staff:view", category: "Management" },
   { label: "Billing", href: "/billing", icon: Receipt, permission: "billing:view", category: "Finance" },
-  { label: "Inventory", href: "/inventory", icon: Package, permission: "inventory:view", category: "Finance" },
+  // { label: "Inventory", href: "/inventory", icon: Package, permission: "inventory:view", category: "Finance" },
   { label: "Expenses", href: "/expenses", icon: TrendingDown, permission: "expenses:view", category: "Finance" },
   { label: "Reports", href: "/reports", icon: BarChart3, permission: "reports:view", category: "Reports" },
   { label: "Profile", href: "/profile", icon: UserCircle, category: "Personal" },

@@ -1,3 +1,4 @@
+// components/patients/patient-details/edit-patient-modal.tsx
 import { Modal, FormField, Input, Select, Button, Alert } from "@/components/ui";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,7 +8,6 @@ import { useEffect } from "react";
 export function EditPatientModal({ open, onClose, patient, onUpdate, isPending, error }: any) {
     const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<UpdatePatientInput>({
         resolver: zodResolver(updatePatientSchema),
-        defaultValues: patient,
     });
 
     const status = watch("status");
@@ -45,9 +45,9 @@ export function EditPatientModal({ open, onClose, patient, onUpdate, isPending, 
 
     return (
         <Modal open={open} onClose={onClose} title="Edit Patient" size="lg">
-            {error && <div className="mb-4"><Alert type="error">{error}</Alert></div>}
-            <form onSubmit={handleSubmit(onUpdate)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+            {error && <Alert type="error">{error}</Alert>}
+            <form onSubmit={handleSubmit(onUpdate)} className="space-y-4 mt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField label="First Name" required error={errors.firstName?.message}>
                         <Input {...register("firstName")} />
                     </FormField>
@@ -56,7 +56,7 @@ export function EditPatientModal({ open, onClose, patient, onUpdate, isPending, 
                     </FormField>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField label="Gender" required error={errors.gender?.message}>
                         <Select {...register("gender")}>
                             <option value="">Select</option>
@@ -70,7 +70,7 @@ export function EditPatientModal({ open, onClose, patient, onUpdate, isPending, 
                     </FormField>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField label="Phone" required error={errors.phone?.message}>
                         <Input {...register("phone")} />
                     </FormField>
@@ -79,11 +79,13 @@ export function EditPatientModal({ open, onClose, patient, onUpdate, isPending, 
                     </FormField>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField label="Blood Group">
                         <Select {...register("bloodGroup")}>
                             <option value="">Unknown</option>
-                            {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(bg => <option key={bg} value={bg}>{bg}</option>)}
+                            {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(bg => (
+                                <option key={bg} value={bg}>{bg}</option>
+                            ))}
                         </Select>
                     </FormField>
                     <FormField label="Status" required error={errors.status?.message}>
@@ -96,19 +98,20 @@ export function EditPatientModal({ open, onClose, patient, onUpdate, isPending, 
                 </div>
 
                 {isDeceased && (
-                    <div className="grid grid-cols-2 gap-4 border-t border-red-200 pt-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-red-200 pt-4">
                         <FormField label="Date of Death" required error={errors.dateOfDeath?.message}>
                             <Input type="date" {...register("dateOfDeath")} />
                         </FormField>
                         <FormField label="Cause of Death" error={errors.causeOfDeath?.message}>
-                            <Input {...register("causeOfDeath")} placeholder="e.g., Cardiac Arrest, Accident" />
+                            <Input {...register("causeOfDeath")} placeholder="e.g., Cardiac Arrest" />
                         </FormField>
                     </div>
                 )}
 
-                <div className="pt-4">
-                    <h4 className="font-medium mb-3">Address</h4>
-                    <div className="grid grid-cols-2 gap-4">
+                {/* Address */}
+                <div className="border-t border-gray-200 pt-4">
+                    <h4 className="text-xs font-semibold text-gray-900 mb-3">Address</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <FormField label="Street"><Input {...register("address.street")} /></FormField>
                         <FormField label="City"><Input {...register("address.city")} /></FormField>
                         <FormField label="State"><Input {...register("address.state")} /></FormField>
@@ -116,18 +119,20 @@ export function EditPatientModal({ open, onClose, patient, onUpdate, isPending, 
                     </div>
                 </div>
 
-                <div className="pt-4">
-                    <h4 className="font-medium mb-3">Emergency Contact</h4>
-                    <div className="grid grid-cols-2 gap-4">
+                {/* Emergency Contact */}
+                <div className="border-t border-gray-200 pt-4">
+                    <h4 className="text-xs font-semibold text-gray-900 mb-3">Emergency Contact</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <FormField label="Name"><Input {...register("emergencyContact.name")} /></FormField>
                         <FormField label="Relationship"><Input {...register("emergencyContact.relationship")} /></FormField>
                         <FormField label="Phone"><Input {...register("emergencyContact.phone")} /></FormField>
                     </div>
                 </div>
 
-                <div className="pt-4">
-                    <h4 className="font-medium mb-3">Medical Information</h4>
-                    <div className="grid grid-cols-2 gap-4">
+                {/* Medical Information */}
+                <div className="border-t border-gray-200 pt-4">
+                    <h4 className="text-xs font-semibold text-gray-900 mb-3">Medical Information</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <FormField label="Allergies (comma-separated)">
                             <Input
                                 defaultValue={watch("allergies")?.join(", ") || ""}
@@ -143,7 +148,7 @@ export function EditPatientModal({ open, onClose, patient, onUpdate, isPending, 
                             />
                         </FormField>
                     </div>
-                    <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                         <FormField label="Insurance Provider"><Input {...register("insuranceDetails.provider")} /></FormField>
                         <FormField label="Policy Number"><Input {...register("insuranceDetails.policyNumber")} /></FormField>
                         <FormField label="Expiry Date"><Input type="date" {...register("insuranceDetails.expiryDate")} /></FormField>
@@ -152,10 +157,14 @@ export function EditPatientModal({ open, onClose, patient, onUpdate, isPending, 
                 </div>
 
                 <FormField label="Notes">
-                    <textarea {...register("notes")} rows={2} className="w-full px-3 py-2 rounded-lg border border-slate-300" />
+                    <textarea
+                        {...register("notes")}
+                        rows={2}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-300 text-xs resize-none focus:outline-none focus:border-teal-600 text-gray-700 placeholder:text-gray-400"
+                    />
                 </FormField>
 
-                <div className="flex justify-end gap-2 pt-2">
+                <div className="flex justify-end gap-2 pt-2 border-t border-gray-300">
                     <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
                     <Button type="submit" loading={isPending}>Update</Button>
                 </div>

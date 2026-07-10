@@ -1,3 +1,4 @@
+// components/users/user-detail-client.tsx
 "use client";
 
 import { useState } from "react";
@@ -7,8 +8,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import {
-    ArrowLeft, Mail, Phone, Calendar, Shield, Edit2, Key, RefreshCw, Eye, EyeOff,
-    Stethoscope, Award, Clock, DollarSign, Building,
+    ArrowLeft, Edit2, Key, RefreshCw, Eye, EyeOff,
+    Stethoscope, Clock, Mail, Phone,
 } from "lucide-react";
 import {
     Card, CardBody, StatusBadge, Badge, Button,
@@ -16,35 +17,20 @@ import {
 } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 
 interface User {
-    _id: string;
-    employeeId: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    role: { _id: string; name: string; slug: string };
-    status: string;
-    isSuperAdmin: boolean;
-    lastLogin?: string;
-    lastLoginIp?: string;
-    createdAt: string;
-    updatedAt: string;
-    createdBy?: { _id: string; firstName: string; lastName: string };
+    _id: string; employeeId: string; firstName: string; lastName: string;
+    email: string; phone: string; role: { _id: string; name: string; slug: string };
+    status: string; isSuperAdmin: boolean; lastLogin?: string; lastLoginIp?: string;
+    createdAt: string; updatedAt: string;
+    createdBy?: { firstName: string; lastName: string };
     doctor?: {
-        _id: string;
-        doctorId: string;
-        specialization: string;
-        qualifications: string[];
-        experience: number;
-        consultationFee: number;
+        _id: string; doctorId: string; specialization: string; qualifications: string[];
+        experience: number; consultationFee: number;
         department: { _id: string; name: string; code: string };
-        isAvailable: boolean;
-        bio: string;
-        languages: string[];
-        createdAt: string;
-        updatedAt: string;
+        isAvailable: boolean; bio: string; languages: string[];
+        createdAt: string; updatedAt: string;
     };
 }
 
@@ -56,7 +42,6 @@ export function UserDetailClient({ userId }: { userId: string }) {
     const [passwordOpen, setPasswordOpen] = useState(false);
     const [resetOpen, setResetOpen] = useState(false);
     const [error, setError] = useState("");
-    const [success, setSuccess] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [resetPassword, setResetPassword] = useState("");
@@ -67,7 +52,6 @@ export function UserDetailClient({ userId }: { userId: string }) {
     const { data, isLoading, error: queryError } = useQuery({
         queryKey: ["user", userId],
         queryFn: () => axios.get(`/api/users/${userId}`).then(r => r.data),
-        enabled: !!userId,
     });
 
     const { data: rolesData } = useQuery({
@@ -79,103 +63,65 @@ export function UserDetailClient({ userId }: { userId: string }) {
     const roles = rolesData?.data || [];
 
     const { register, handleSubmit, reset, formState: { errors } } = useForm({
-        defaultValues: {
-            firstName: "",
-            lastName: "",
-            email: "",
-            phone: "",
-            role: "",
-            status: "",
-        },
+        defaultValues: { firstName: "", lastName: "", email: "", phone: "", role: "", status: "" },
     });
 
-    const passwordForm = useForm({
-        defaultValues: {
-            currentPassword: "",
-            newPassword: "",
-            confirmPassword: "",
-        },
-    });
+    const passwordForm = useForm({ defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" } });
 
     const updateMutation = useMutation({
         mutationFn: (data: any) => axios.put(`/api/users/${userId}`, data),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ["user", userId] });
             qc.invalidateQueries({ queryKey: ["users"] });
-            setEditOpen(false);
-            setError("");
-            setSuccess("User updated successfully");
-            setTimeout(() => setSuccess(""), 3000);
+            setEditOpen(false); setError("");
+            toast.success("User updated successfully!");
         },
-        onError: (e: any) => setError(e?.response?.data?.error || "Failed to update"),
+        onError: (e: any) => { const msg = e?.response?.data?.error || "Failed"; setError(msg); toast.error(msg); },
     });
 
     const changePasswordMutation = useMutation({
         mutationFn: (data: any) => axios.put(`/api/users/${userId}`, data),
         onSuccess: () => {
-            setPasswordOpen(false);
-            passwordForm.reset();
-            setError("");
-            setSuccess("Password changed successfully");
-            setTimeout(() => setSuccess(""), 3000);
+            setPasswordOpen(false); passwordForm.reset(); setError("");
+            toast.success("Password changed successfully!");
         },
-        onError: (e: any) => setError(e?.response?.data?.error || "Failed to change password"),
+        onError: (e: any) => { const msg = e?.response?.data?.error || "Failed"; setError(msg); toast.error(msg); },
     });
 
     const resetPasswordMutation = useMutation({
         mutationFn: () => axios.put(`/api/users/${userId}`, { resetPassword: true }),
         onSuccess: (res) => {
             setResetPassword(res.data.data.tempPassword);
-            setResetOpen(false);
-            setError("");
-            setSuccess("Password reset successfully");
-            setTimeout(() => setSuccess(""), 3000);
+            setResetOpen(false); setError("");
+            toast.success("Password reset successfully!");
         },
-        onError: (e: any) => setError(e?.response?.data?.error || "Failed to reset password"),
+        onError: (e: any) => { const msg = e?.response?.data?.error || "Failed"; setError(msg); toast.error(msg); },
     });
 
     const openEditModal = () => {
         if (data?.data) {
             const u = data.data;
-            reset({
-                firstName: u.firstName,
-                lastName: u.lastName,
-                email: u.email,
-                phone: u.phone,
-                role: u.role?._id || "",
-                status: u.status,
-            });
+            reset({ firstName: u.firstName, lastName: u.lastName, email: u.email, phone: u.phone, role: u.role?._id || "", status: u.status });
             setEditOpen(true);
         }
     };
 
     const handlePasswordChange = (data: any) => {
-        if (data.newPassword !== data.confirmPassword) {
-            setError("New passwords do not match");
-            return;
-        }
-        if (data.newPassword.length < 8) {
-            setError("Password must be at least 8 characters");
-            return;
-        }
-        changePasswordMutation.mutate({
-            currentPassword: data.currentPassword,
-            newPassword: data.newPassword,
-        });
+        if (data.newPassword !== data.confirmPassword) { setError("Passwords do not match"); return; }
+        if (data.newPassword.length < 8) { setError("Password must be at least 8 characters"); return; }
+        changePasswordMutation.mutate({ currentPassword: data.currentPassword, newPassword: data.newPassword });
     };
 
     if (isLoading) return (
         <div className="space-y-4">
-            <Skeleton className="h-8 w-48" />
-            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-8 w-48 rounded-lg" />
+            <Skeleton className="h-64 w-full rounded-lg" />
         </div>
     );
 
     if (queryError || !data?.data) return (
         <div className="space-y-4">
-            <Link href="/users">
-                <Button variant="ghost" size="sm"><ArrowLeft className="w-4 h-4" /> Back to Users</Button>
-            </Link>
+            <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-xs text-gray-500 cursor-pointer"><ArrowLeft className="w-4 h-4" /> Back</button>
             <Alert type="error">User not found.</Alert>
         </div>
     );
@@ -183,330 +129,173 @@ export function UserDetailClient({ userId }: { userId: string }) {
     const u: User = data.data;
     const doctor = u.doctor;
 
-    const getStatusColor = (status: string) => {
-        const colors: Record<string, string> = {
-            active: "bg-green-100 text-green-700",
-            inactive: "bg-gray-100 text-gray-700",
-            suspended: "bg-red-100 text-red-700",
-            locked: "bg-orange-100 text-orange-700",
-        };
-        return colors[status] || "bg-gray-100 text-gray-700";
-    };
-
     return (
-        <div className="space-y-5 max-w-4xl mx-auto">
+        <div className="space-y-4">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <Link href="/users">
-                    <Button variant="ghost" size="sm"><ArrowLeft className="w-4 h-4" /> All Users</Button>
-                </Link>
-                <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-start gap-3 min-w-0">
+                    <button onClick={() => router.back()} className="p-2 rounded-lg border border-gray-300 text-gray-400 cursor-pointer shrink-0 mt-0.5">
+                        <ArrowLeft className="w-4 h-4" />
+                    </button>
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <h1 className="text-lg font-semibold text-gray-900">{u.firstName} {u.lastName}</h1>
+                            <StatusBadge status={u.status} />
+                            {u.isSuperAdmin && <Badge variant="danger">Super Admin</Badge>}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-0.5">{u.role?.name} • {u.employeeId}</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
                     {isOwnProfile && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setPasswordOpen(true)}
-                        >
-                            <Key className="w-3.5 h-3.5" /> Change Password
+                        <Button variant="secondary" size="sm" onClick={() => { setPasswordOpen(true); setError(""); }}>
+                            <Key className="w-3.5 h-3.5" /> Password
                         </Button>
                     )}
                     {isSA && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setResetOpen(true)}
-                            className="text-orange-600 border-orange-300 hover:bg-orange-50"
-                        >
-                            <RefreshCw className="w-3.5 h-3.5" /> Reset Password
+                        <Button variant="secondary" size="sm" onClick={() => setResetOpen(true)}>
+                            <RefreshCw className="w-3.5 h-3.5" /> Reset
                         </Button>
                     )}
                     {(isSA || isOwnProfile) && (
-                        <Button variant="outline" size="sm" onClick={openEditModal}>
+                        <Button variant="secondary" size="sm" onClick={openEditModal}>
                             <Edit2 className="w-3.5 h-3.5" /> Edit
                         </Button>
                     )}
                 </div>
             </div>
 
-            {/* Success/Error Messages */}
-            {success && <Alert type="success">{success}</Alert>}
             {error && <Alert type="error">{error}</Alert>}
 
-            {/* Status Banner */}
-            <div className={`p-4 rounded-lg border ${getStatusColor(u.status)}`}>
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <Shield className="w-5 h-5" />
-                        <span className="font-semibold">Status: {u.status.toUpperCase()}</span>
-                    </div>
-                    <span className="text-sm">{u.employeeId}</span>
-                </div>
-                {u.isSuperAdmin && (
-                    <Badge variant="danger" className="mt-2">Super Administrator</Badge>
-                )}
-            </div>
-
-            {/* User Info Card */}
-            <Card>
-                <CardBody className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-4">
-                            <div>
-                                <p className="text-xs text-slate-400 uppercase font-semibold">Full Name</p>
-                                <p className="text-xl font-semibold text-slate-800">{u.firstName} {u.lastName}</p>
-                            </div>
-                            <div className="flex items-start gap-3">
-                                <Mail className="w-5 h-5 text-slate-400 mt-0.5" />
-                                <div>
-                                    <p className="text-xs text-slate-400 uppercase font-semibold">Email</p>
-                                    <p className="text-slate-700">{u.email}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-3">
-                                <Phone className="w-5 h-5 text-slate-400 mt-0.5" />
-                                <div>
-                                    <p className="text-xs text-slate-400 uppercase font-semibold">Phone</p>
-                                    <p className="text-slate-700">{u.phone}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div>
-                                <p className="text-xs text-slate-400 uppercase font-semibold">Role</p>
-                                <Badge variant="outline" className="mt-1">{u.role?.name}</Badge>
-                            </div>
-                            <div className="flex items-start gap-3">
-                                <Calendar className="w-5 h-5 text-slate-400 mt-0.5" />
-                                <div>
-                                    <p className="text-xs text-slate-400 uppercase font-semibold">Last Login</p>
-                                    <p className="text-slate-700">{u.lastLogin ? formatDate(u.lastLogin) : "Never"}</p>
-                                    {u.lastLoginIp && <p className="text-xs text-slate-400">IP: {u.lastLoginIp}</p>}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="border-t pt-4 flex justify-between text-xs text-slate-400">
-                        <span>Created: {formatDate(u.createdAt)}</span>
-                        <span>Updated: {formatDate(u.updatedAt)}</span>
-                        {u.createdBy && <span>Created by: {u.createdBy.firstName} {u.createdBy.lastName}</span>}
-                    </div>
-                </CardBody>
-            </Card>
-
-            {/* Doctor Details Card - Only show if user is a doctor */}
-            {doctor && (
+            {/* Detail Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* User Info */}
                 <Card>
-                    <CardBody className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <h3 className="font-semibold text-slate-700 flex items-center gap-2">
-                                <Stethoscope className="w-4 h-4 text-blue-500" /> Doctor Details
-                            </h3>
-                            {isSA && (
-                                <Link href={`/doctors/${doctor?._id}`}>
-                                    <Button variant="outline" size="sm">
-                                        View Doctor Profile
-                                    </Button>
-                                </Link>
-                            )}
+                    <CardBody>
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center"><Mail className="w-4 h-4 text-teal-600" /></div>
+                            <h3 className="text-xs font-semibold text-gray-900">User Information</h3>
                         </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-3">
-                                <div className="flex items-start gap-3">
-                                    <Badge variant="outline" className="mt-0.5">ID</Badge>
-                                    <div>
-                                        <p className="text-sm font-medium text-slate-700">{doctor.doctorId}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Award className="w-4 h-4 text-slate-400 mt-0.5" />
-                                    <div>
-                                        <p className="text-xs text-slate-400 uppercase font-semibold">Specialization</p>
-                                        <p className="text-sm text-slate-700">{doctor.specialization}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Clock className="w-4 h-4 text-slate-400 mt-0.5" />
-                                    <div>
-                                        <p className="text-xs text-slate-400 uppercase font-semibold">Experience</p>
-                                        <p className="text-sm text-slate-700">{doctor.experience} years</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Award className="w-4 h-4 text-slate-400 mt-0.5" />
-                                    <div>
-                                        <p className="text-xs text-slate-400 uppercase font-semibold">Qualifications</p>
-                                        <p className="text-sm text-slate-700">{doctor.qualifications?.join(", ") || "—"}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="space-y-3">
-                                <div className="flex items-start gap-3">
-                                    <Building className="w-4 h-4 text-slate-400 mt-0.5" />
-                                    <div>
-                                        <p className="text-xs text-slate-400 uppercase font-semibold">Department</p>
-                                        <p className="text-sm text-slate-700">{doctor.department?.name || "—"}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <DollarSign className="w-4 h-4 text-slate-400 mt-0.5" />
-                                    <div>
-                                        <p className="text-xs text-slate-400 uppercase font-semibold">Consultation Fee</p>
-                                        <p className="text-sm text-slate-700">PKR {doctor.consultationFee?.toLocaleString()}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Badge variant={doctor.isAvailable ? "success" : "default"} className="mt-0.5">
-                                        {doctor.isAvailable ? "Available" : "Unavailable"}
-                                    </Badge>
-                                </div>
-                                {doctor.languages?.length > 0 && (
-                                    <div className="flex items-start gap-3">
-                                        <div>
-                                            <p className="text-xs text-slate-400 uppercase font-semibold">Languages</p>
-                                            <div className="flex flex-wrap gap-1 mt-1">
-                                                {doctor.languages.map((lang, i) => <Badge key={i} variant="outline">{lang}</Badge>)}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {doctor.bio && (
-                            <div className="border-t pt-3">
-                                <p className="text-xs text-slate-400 uppercase font-semibold mb-1">Bio</p>
-                                <p className="text-sm text-slate-700">{doctor.bio}</p>
-                            </div>
-                        )}
-
-                        <div className="border-t pt-3 flex justify-between text-xs text-slate-400">
-                            <span>Doctor Created: {formatDate(doctor.createdAt)}</span>
-                            <span>Doctor Updated: {formatDate(doctor.updatedAt)}</span>
+                        <div className="space-y-2.5">
+                            <Row label="Full Name" value={`${u.firstName} ${u.lastName}`} />
+                            <Row label="Email" value={u.email} />
+                            <Row label="Phone" value={u.phone} />
+                            <Row label="Role"><Badge variant="outline">{u.role?.name}</Badge></Row>
+                            <Row label="Employee ID" value={u.employeeId} />
                         </div>
                     </CardBody>
                 </Card>
-            )}
+
+                {/* Activity */}
+                <Card>
+                    <CardBody>
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center"><Clock className="w-4 h-4 text-gray-400" /></div>
+                            <h3 className="text-xs font-semibold text-gray-900">Activity</h3>
+                        </div>
+                        <div className="space-y-2.5">
+                            <Row label="Last Login" value={u.lastLogin ? formatDate(u.lastLogin) : "Never"} />
+                            {u.lastLoginIp && <Row label="Last IP" value={u.lastLoginIp} />}
+                            <Row label="Created" value={formatDate(u.createdAt)} />
+                            <Row label="Updated" value={formatDate(u.updatedAt)} />
+                            {u.createdBy && <Row label="Created by" value={`${u.createdBy.firstName} ${u.createdBy.lastName}`} />}
+                        </div>
+                    </CardBody>
+                </Card>
+
+                {/* Doctor Info */}
+                {doctor && (
+                    <Card className="sm:col-span-2">
+                        <CardBody>
+                            <div className="flex items-center gap-2 mb-4">
+                                <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center"><Stethoscope className="w-4 h-4 text-teal-600" /></div>
+                                <h3 className="text-xs font-semibold text-gray-900">Doctor Profile</h3>
+                                {isSA && (
+                                    <Link href={`/doctors/${doctor._id}`} className="ml-auto">
+                                        <Button variant="secondary" size="sm">View Doctor</Button>
+                                    </Link>
+                                )}
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div className="space-y-2.5">
+                                    <Row label="Doctor ID" value={doctor.doctorId} />
+                                    <Row label="Specialization" value={doctor.specialization} />
+                                    <Row label="Experience" value={`${doctor.experience} years`} />
+                                </div>
+                                <div className="space-y-2.5">
+                                    <Row label="Department" value={doctor.department?.name || "—"} />
+                                    <Row label="Fee" value={`PKR ${doctor.consultationFee?.toLocaleString()}`} />
+                                    <Row label="Status"><Badge variant={doctor.isAvailable ? "success" : "default"}>{doctor.isAvailable ? "Available" : "Unavailable"}</Badge></Row>
+                                </div>
+                                <div className="space-y-2.5">
+                                    <Row label="Qualifications" value={doctor.qualifications?.join(", ") || "—"} />
+                                    {doctor.languages?.length > 0 && <Row label="Languages"><div className="flex gap-1 flex-wrap justify-end">{doctor.languages.map((l, i) => <Badge key={i} variant="outline">{l}</Badge>)}</div></Row>}
+                                </div>
+                            </div>
+                            {doctor.bio && <p className="text-xs text-gray-600 mt-3 pt-3 border-t border-gray-200">{doctor.bio}</p>}
+                        </CardBody>
+                    </Card>
+                )}
+            </div>
 
             {/* Edit Modal */}
-            <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit User" size="md">
-                <form onSubmit={handleSubmit((d) => updateMutation.mutate(d))} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <FormField label="First Name" required error={errors.firstName?.message}>
-                            <Input {...register("firstName")} />
-                        </FormField>
-                        <FormField label="Last Name" required error={errors.lastName?.message}>
-                            <Input {...register("lastName")} />
-                        </FormField>
+            <Modal open={editOpen} onClose={() => { setEditOpen(false); setError(""); }} title="Edit User" size="md">
+                <form onSubmit={handleSubmit((d) => updateMutation.mutate(d))} className="space-y-4 mt-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <FormField label="First Name" required error={errors.firstName?.message}><Input {...register("firstName")} /></FormField>
+                        <FormField label="Last Name" required error={errors.lastName?.message}><Input {...register("lastName")} /></FormField>
                     </div>
-                    <FormField label="Email" required error={errors.email?.message}>
-                        <Input type="email" {...register("email")} />
-                    </FormField>
-                    <FormField label="Phone" required error={errors.phone?.message}>
-                        <Input {...register("phone")} />
-                    </FormField>
-                    {(isSA) && (
+                    <FormField label="Email" required error={errors.email?.message}><Input type="email" {...register("email")} /></FormField>
+                    <FormField label="Phone" required error={errors.phone?.message}><Input {...register("phone")} /></FormField>
+                    {isSA && (
                         <>
-                            <FormField label="Role" required error={errors.role?.message}>
-                                <Select {...register("role")}>
-                                    <option value="">Select role</option>
-                                    {roles.map((r: { _id: string; name: string }) => (
-                                        <option key={r._id} value={r._id}>{r.name}</option>
-                                    ))}
-                                </Select>
-                            </FormField>
-                            <FormField label="Status" error={errors.status?.message}>
-                                <Select {...register("status")}>
-                                    <option value="active">Active</option>
-                                    <option value="suspended">Suspended</option>
-                                    <option value="inactive">Inactive</option>
-                                </Select>
-                            </FormField>
+                            <FormField label="Role" required error={errors.role?.message}><Select {...register("role")}><option value="">Select role</option>{roles.map((r: any) => <option key={r._id} value={r._id}>{r.name}</option>)}</Select></FormField>
+                            <FormField label="Status"><Select {...register("status")}><option value="active">Active</option><option value="suspended">Suspended</option><option value="inactive">Inactive</option></Select></FormField>
                         </>
                     )}
-                    <div className="flex justify-end gap-2 pt-2">
+                    <div className="flex justify-end gap-2 pt-2 border-t border-gray-300">
                         <Button type="button" variant="secondary" onClick={() => setEditOpen(false)}>Cancel</Button>
                         <Button type="submit" loading={updateMutation.isPending}>Save Changes</Button>
                     </div>
                 </form>
             </Modal>
 
-            {/* Change Password Modal - User self change */}
+            {/* Change Password Modal */}
             <Modal open={passwordOpen} onClose={() => { setPasswordOpen(false); passwordForm.reset(); setError(""); }} title="Change Password" size="md">
-                <form onSubmit={passwordForm.handleSubmit(handlePasswordChange)} className="space-y-4">
+                {error && <Alert type="error">{error}</Alert>}
+                <form onSubmit={passwordForm.handleSubmit(handlePasswordChange)} className="space-y-4 mt-2">
                     <FormField label="Current Password" required>
-                        <div className="relative">
-                            <Input
-                                type={showPassword ? "text" : "password"}
-                                {...passwordForm.register("currentPassword")}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                            >
-                                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </button>
-                        </div>
+                        <div className="relative"><Input type={showPassword ? "text" : "password"} {...passwordForm.register("currentPassword")} /><button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 cursor-pointer">{showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>
                     </FormField>
                     <FormField label="New Password" required>
-                        <div className="relative">
-                            <Input
-                                type={showNewPassword ? "text" : "password"}
-                                {...passwordForm.register("newPassword")}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowNewPassword(!showNewPassword)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                            >
-                                {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </button>
-                        </div>
+                        <div className="relative"><Input type={showNewPassword ? "text" : "password"} {...passwordForm.register("newPassword")} /><button type="button" onClick={() => setShowNewPassword(!showNewPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 cursor-pointer">{showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>
                     </FormField>
-                    <FormField label="Confirm New Password" required>
-                        <Input type="password" {...passwordForm.register("confirmPassword")} />
-                    </FormField>
-                    <div className="flex justify-end gap-2 pt-2">
-                        <Button type="button" variant="secondary" onClick={() => { setPasswordOpen(false); passwordForm.reset(); setError(""); }}>Cancel</Button>
-                        <Button type="submit" loading={changePasswordMutation.isPending}>Change Password</Button>
-                    </div>
+                    <FormField label="Confirm New Password" required><Input type="password" {...passwordForm.register("confirmPassword")} /></FormField>
+                    <div className="flex justify-end gap-2 pt-2 border-t border-gray-300"><Button type="button" variant="secondary" onClick={() => { setPasswordOpen(false); passwordForm.reset(); setError(""); }}>Cancel</Button><Button type="submit" loading={changePasswordMutation.isPending}>Change Password</Button></div>
                 </form>
             </Modal>
 
-            {/* Reset Password Modal - Admin only */}
-            <Modal open={resetOpen} onClose={() => setResetOpen(false)} title="Reset Password" size="md">
-                <div className="space-y-4">
-                    <Alert type="warning">
-                        Are you sure you want to reset the password for <strong>{u.firstName} {u.lastName}</strong>?
-                        <br />A temporary password will be generated and the user will be required to change it on next login.
-                    </Alert>
-                    <div className="flex justify-end gap-2 pt-2">
-                        <Button type="button" variant="secondary" onClick={() => setResetOpen(false)}>Cancel</Button>
-                        <Button type="button" variant="secondary" onClick={() => resetPasswordMutation.mutate()} loading={resetPasswordMutation.isPending}>
-                            Yes, Reset Password
-                        </Button>
-                    </div>
+            {/* Reset Password Modal */}
+            <Modal open={resetOpen} onClose={() => setResetOpen(false)} title="Reset Password" size="sm">
+                <div className="space-y-4 mt-2">
+                    <Alert type="warning">Reset password for <strong>{u.firstName} {u.lastName}</strong>? A temporary password will be generated.</Alert>
+                    <div className="flex justify-end gap-2 pt-2 border-t border-gray-300"><Button variant="secondary" onClick={() => setResetOpen(false)}>Cancel</Button><Button onClick={() => resetPasswordMutation.mutate()} loading={resetPasswordMutation.isPending}>Reset Password</Button></div>
                 </div>
             </Modal>
 
-            {/* Temp Password Modal - Show temporary password */}
+            {/* Temp Password Modal */}
             {resetPassword && (
-                <Modal open={!!resetPassword} onClose={() => setResetPassword("")} title="Password Reset Successful">
-                    <Alert type="success">Password has been reset successfully.</Alert>
-                    <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
-                        <p className="text-sm text-slate-600 mb-2">New temporary password (share securely with user):</p>
-                        <code className="text-base font-mono font-bold text-slate-800 tracking-wider">{resetPassword}</code>
-                    </div>
-                    <p className="text-xs text-slate-400 mt-2">User will be required to change password on next login.</p>
-                    <div className="mt-4 flex justify-end">
-                        <Button onClick={() => setResetPassword("")}>Done</Button>
-                    </div>
+                <Modal open={!!resetPassword} onClose={() => setResetPassword("")} title="Password Reset" size="sm">
+                    <Alert type="success">Password has been reset.</Alert>
+                    <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200"><p className="text-xs text-gray-500 mb-1">Temporary password:</p><code className="text-sm font-semibold text-gray-900">{resetPassword}</code></div>
+                    <p className="text-xs text-gray-400 mt-2">User must change on next login.</p>
+                    <div className="mt-4 flex justify-end"><Button onClick={() => setResetPassword("")}>Done</Button></div>
                 </Modal>
             )}
         </div>
     );
+}
+
+function Row({ label, value, children }: { label: string; value?: string; children?: React.ReactNode }) {
+    return <div className="flex items-center justify-between gap-3"><span className="text-xs text-gray-400 shrink-0">{label}</span>{children ? <span className="text-xs text-right">{children}</span> : <span className="text-xs text-gray-700 text-right truncate">{value}</span>}</div>;
 }

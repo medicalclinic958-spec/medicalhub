@@ -39,16 +39,55 @@ export async function GET(req: NextRequest) {
   const date = sp.get("date") || "";
   const patientId = sp.get("patient") || "";
   const today = sp.get("today") === "true";
+  const search = sp.get("search") || "";
 
   if (status) filter.status = { $in: status.split(",") };
   if (patientId) filter.patient = patientId;
 
   if (today) {
     const now = new Date();
-    filter.scheduledDate = { $gte: startOfDay(now), $lte: endOfDay(now) };
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const d = now.getDate();
+    filter.scheduledDate = { 
+      $gte: new Date(y, m, d, 0, 0, 0, 0), 
+      $lte: new Date(y, m, d, 23, 59, 59, 999) 
+    };
   } else if (date) {
-    const d = new Date(date);
-    filter.scheduledDate = { $gte: startOfDay(d), $lte: endOfDay(d) };
+    const [y, m, d] = date.split("-").map(Number);
+    filter.scheduledDate = { 
+      $gte: new Date(y, m - 1, d, 0, 0, 0, 0), 
+      $lte: new Date(y, m - 1, d, 23, 59, 59, 999) 
+    };
+  }
+
+  // Search by patient name, doctor name, or appointment ID
+  if (search) {
+    const { Patient } = await import("@/models/clinical.model");
+    const patientIds = await Patient.find({
+      $or: [
+        { firstName: { $regex: search, $options: "i" } },
+        { lastName: { $regex: search, $options: "i" } },
+        { patientId: { $regex: search, $options: "i" } },
+      ],
+    }).distinct("_id");
+
+    const { User } = await import("@/models/user.model");
+    const userIds = await User.find({
+      $or: [
+        { firstName: { $regex: search, $options: "i" } },
+        { lastName: { $regex: search, $options: "i" } },
+      ],
+    }).distinct("_id");
+
+    const { Doctor } = await import("@/models/clinical.model");
+    const doctorIds = await Doctor.find({ user: { $in: userIds } }).distinct("_id");
+
+    filter.$or = [
+      { patient: { $in: patientIds } },
+      { doctor: { $in: doctorIds } },
+      { appointmentId: { $regex: search, $options: "i" } },
+    ];
   }
 
   const [appointments, total] = await Promise.all([

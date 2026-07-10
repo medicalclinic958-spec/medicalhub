@@ -11,17 +11,52 @@ export async function GET(req: NextRequest) {
   if (!hasPermission(session.user.permissions, session.user.isSuperAdmin, "doctors", "view")) {
     return apiError("Forbidden", 403);
   }
+
   await connectDB();
   const sp = req.nextUrl.searchParams;
   const { page, limit, skip } = getPaginationParams(sp);
+
+  const search = sp.get("search") || "";
+  const departmentId = sp.get("department") || "";
+  const isAvailable = sp.get("isAvailable");
+
+  const filter: Record<string, unknown> = {};
+
+  // Department filter
+  if (departmentId) filter.department = departmentId;
+
+  // Availability filter
+  if (isAvailable !== undefined && isAvailable !== null && isAvailable !== "") {
+    filter.isAvailable = isAvailable === "true";
+  }
+
+  // Search by name, email, specialization, or doctor ID
+  if (search) {
+    const { User } = await import("@/models/user.model");
+    const userIds = await User.find({
+      $or: [
+        { firstName: { $regex: search, $options: "i" } },
+        { lastName: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+      ],
+    }).distinct("_id");
+
+    filter.$or = [
+      { user: { $in: userIds } },
+      { specialization: { $regex: search, $options: "i" } },
+      { doctorId: { $regex: search, $options: "i" } },
+    ];
+  }
+
   const [doctors, total] = await Promise.all([
-    Doctor.find({})
+    Doctor.find(filter)
       .skip(skip).limit(limit).sort({ createdAt: -1 })
       .populate("user", "firstName lastName email phone avatar")
       .populate("department", "name code")
       .lean(),
-    Doctor.countDocuments({}),
+    Doctor.countDocuments(filter),
   ]);
+
   return apiSuccess(doctors, "Doctors fetched", 200, buildPagination(total, page, limit));
 }
 

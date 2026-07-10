@@ -100,3 +100,36 @@ body {
   background: linear-gradient(135deg, #dc2626, #ef4444) !important;
   border-color: #dc2626 !important;
 }
+
+.dark body {
+  background: #111827;
+  color: #f3f4f6;
+}
+
+/* Dark mode overrides - add/replace in globals.css */
+.dark body,
+.dark .bg-white { @apply bg-gray-900; }
+.dark .min-h-screen { @apply bg-gray-900; }
+.dark .text-gray-900 { @apply text-gray-100; }
+.dark .text-gray-800 { @apply text-gray-200; }
+.dark .text-gray-700 { @apply text-gray-300; }
+.dark .text-gray-600 { @apply text-gray-400; }
+.dark .text-gray-500 { @apply text-gray-400; }
+.dark .text-gray-400 { @apply text-gray-500; }
+.dark .text-gray-300 { @apply text-gray-600; }
+.dark .border-gray-300 { @apply border-gray-700; }
+.dark .border-gray-200 { @apply border-gray-700; }
+.dark .border-gray-100 { @apply border-gray-800; }
+.dark .bg-gray-50 { @apply bg-gray-800; }
+.dark .bg-gray-100 { @apply bg-gray-800; }
+.dark .divide-gray-100 { @apply divide-gray-800; }
+.dark .from-gray-50 { @apply from-gray-900; }
+.dark .to-white { @apply to-gray-900; }
+.dark .bg-slate-50 { @apply bg-gray-800; }
+.dark .text-slate-800 { @apply text-gray-200; }
+.dark .text-slate-700 { @apply text-gray-300; }
+.dark .text-slate-600 { @apply text-gray-400; }
+.dark .text-slate-500 { @apply text-gray-400; }
+.dark .text-slate-400 { @apply text-gray-500; }
+.dark .border-slate-200 { @apply border-gray-700; }
+.dark .border-slate-100 { @apply border-gray-800; }

@@ -88,11 +88,12 @@ export function ProfileClient() {
 
     const changePasswordMutation = useMutation({
         mutationFn: (d: any) => axios.post("/api/auth/change-password", d),
-        onSuccess: () => {
+        onSuccess: async () => {
             setPasswordOpen(false);
             passwordForm.reset();
             setError("");
             toast.success("Password changed successfully");
+            await updateSession(); // force refresh session to get updated mustChangePassword
         },
         onError: (e: any) => {
             const msg = e?.response?.data?.error || "Failed";
@@ -138,7 +139,9 @@ export function ProfileClient() {
 
     return (
         <div className="space-y-4">
-            {error && <Alert type="error">{error}</Alert>}
+            {session?.user?.mustChangePassword && (
+                <Alert type="warning">Please change your default password to access all features.</Alert>
+            )}
 
             {/* Profile Header */}
             <Card>
@@ -285,6 +288,7 @@ export function ProfileClient() {
             {/* Change Password Modal */}
             <Modal open={passwordOpen} onClose={() => { setPasswordOpen(false); passwordForm.reset(); setError(""); }} title="Change Password" size="md">
                 <form onSubmit={passwordForm.handleSubmit(handlePasswordChange)} className="space-y-4 mt-2">
+                    {error && <Alert type="error">{error}</Alert>}
                     <FormField label="Current Password" required>
                         <div className="relative">
                             <Input type={showPassword ? "text" : "password"} {...passwordForm.register("currentPassword")} />

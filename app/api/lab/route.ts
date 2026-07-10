@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
   const { page, limit, skip } = getPaginationParams(sp);
   const status = sp.get("status") || "";
   const patientId = sp.get("patient") || "";
+  const search = sp.get("search") || "";
 
   const filter: Record<string, unknown> = {};
 
@@ -28,6 +29,19 @@ export async function GET(req: NextRequest) {
 
   if (status) filter.status = status;
   if (patientId) filter.patient = patientId;
+
+  // Search by patient name or ID
+  if (search) {
+    const { Patient } = await import("@/models/clinical.model");
+    const patientIds = await Patient.find({
+      $or: [
+        { firstName: { $regex: search, $options: "i" } },
+        { lastName: { $regex: search, $options: "i" } },
+        { patientId: { $regex: search, $options: "i" } },
+      ],
+    }).distinct("_id");
+    filter.patient = { $in: patientIds };
+  }
 
   const [tests, total] = await Promise.all([
     LabTest.find(filter).skip(skip).limit(limit).sort({ createdAt: -1 })

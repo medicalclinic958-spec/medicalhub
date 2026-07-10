@@ -6,11 +6,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import {
-    ArrowLeft, FlaskConical, FileText, FileCheck, Trash2, Pencil,
+    ArrowLeft, FlaskConical, FileText, FileCheck, Trash2,
 } from "lucide-react";
-import { Card, CardBody, StatusBadge, Button, Badge, Alert, Modal } from "@/components/ui";
-import { formatDateTime } from "@/lib/utils";
+import { Card, CardBody, StatusBadge, Button, Badge, Alert, Modal, Skeleton } from "@/components/ui";
+import { formatDate, cn } from "@/lib/utils";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 import { LabTestsTab } from "./lab-tests-tab";
 import { LabResultsTab } from "./lab-results-tab";
 import { LabReportTab } from "./lab-report-tab";
@@ -60,7 +61,6 @@ export function LabDetailClient() {
     const canUpdate = isSA || perms.includes("lab:update");
     const canDelete = isSA || perms.includes("lab:delete");
 
-    // Sync URL with tab
     const switchTab = (tab: TabKey) => {
         setActiveTab(tab);
         const url = new URL(window.location.href);
@@ -77,79 +77,75 @@ export function LabDetailClient() {
 
     const deleteMutation = useMutation({
         mutationFn: () => axios.delete(`/api/lab/${id}`),
-        onSuccess: () => router.push("/lab"),
-        onError: (e: unknown) => {
-            alert((e as { response?: { data?: { error?: string } } })?.response?.data?.error || "Failed");
-        },
+        onSuccess: () => { toast.success("Lab order deleted!"); router.push("/lab"); },
+        onError: (e: unknown) => toast.error((e as any)?.response?.data?.error || "Failed to delete"),
     });
 
     if (isLoading) {
         return (
-            <div className="space-y-5">
-                <div className="h-8 bg-slate-100 rounded w-48 animate-pulse" />
-                <Card><CardBody><div className="h-64 bg-slate-50 rounded animate-pulse" /></CardBody></Card>
+            <div className="space-y-4">
+                <Skeleton className="h-8 w-48 rounded-lg" />
+                <Skeleton className="h-64 w-full rounded-lg" />
             </div>
         );
     }
 
     if (!test) {
         return (
-            <div className="space-y-5">
-                <Button variant="secondary" onClick={() => router.back()}><ArrowLeft className="w-4 h-4" /> Back</Button>
-                <Card><CardBody><p className="text-center text-slate-500 py-12">Lab test not found</p></CardBody></Card>
+            <div className="space-y-4">
+                <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-xs text-gray-500 cursor-pointer"><ArrowLeft className="w-4 h-4" /> Back</button>
+                <Card><CardBody><p className="text-center text-gray-400 py-12 text-xs">Lab test not found</p></CardBody></Card>
             </div>
         );
     }
 
-    // Determine which tabs are available
     const availableTabs = TABS.filter(tab => {
         if (tab.key === "report") return ["completed", "delivered"].includes(test.status);
         if (tab.key === "results") return ["processing", "completed", "delivered"].includes(test.status);
-        return true; // tests tab always visible
+        return true;
     });
 
     return (
-        <div className="space-y-5">
+        <div className="space-y-4">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <button onClick={() => router.back()} className="p-2 hover:bg-slate-100 rounded-lg">
-                        <ArrowLeft className="w-5 h-5 text-slate-500" />
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-start gap-3 min-w-0">
+                    <button onClick={() => router.back()} className="p-2 rounded-lg border border-gray-300 text-gray-400 cursor-pointer shrink-0 mt-0.5">
+                        <ArrowLeft className="w-4 h-4" />
                     </button>
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <h1 className="text-xl font-bold text-slate-800">{test.labTestId}</h1>
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <h1 className="text-lg font-semibold text-gray-900">{test.labTestId}</h1>
                             <StatusBadge status={test.status} />
-                            <Badge variant={test.priority === "stat" ? "danger" : test.priority === "urgent" ? "warning" : "default"}>
-                                {test.priority}
-                            </Badge>
+                            <Badge variant={test.priority === "stat" ? "danger" : test.priority === "urgent" ? "warning" : "default"}>{test.priority}</Badge>
                             <Badge variant={test.isPaid ? "success" : "danger"}>{test.isPaid ? "Paid" : "Unpaid"}</Badge>
                         </div>
-                        <p className="text-sm text-slate-500">Created {formatDateTime(test.createdAt)}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {test.patient?.firstName} {test.patient?.lastName} ({test.patient?.patientId}) • Created {formatDate(test.createdAt)}
+                        </p>
                     </div>
                 </div>
                 {canDelete && ["pending", "cancelled"].includes(test.status) && (
                     <Button variant="danger" size="sm" onClick={() => setDeleteConfirmOpen(true)}>
-                        <Trash2 className="w-4 h-4" /> Delete Permanently
+                        <Trash2 className="w-3.5 h-3.5" /> Delete
                     </Button>
                 )}
             </div>
 
             {/* Tab Navigation */}
-            <div className="flex gap-0 border-b border-slate-200">
+            <div className="flex gap-2 border-b border-gray-300">
                 {availableTabs.map(tab => {
                     const Icon = tab.icon;
-                    const isActive = activeTab === tab.key;
                     return (
                         <button
                             key={tab.key}
                             onClick={() => switchTab(tab.key)}
-                            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${isActive
-                                ? "text-blue-600 border-blue-600 bg-blue-50/50"
-                                : "text-slate-500 border-transparent hover:text-slate-700 hover:border-slate-300"
-                                }`}
+                            className={cn(
+                                "flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 cursor-pointer",
+                                activeTab === tab.key ? "border-teal-600 text-teal-700" : "border-transparent text-gray-500"
+                            )}
                         >
-                            <Icon className="w-4 h-4" />
+                            <Icon className="w-3.5 h-3.5" />
                             {tab.label}
                         </button>
                     );
@@ -161,21 +157,19 @@ export function LabDetailClient() {
             {activeTab === "results" && <LabResultsTab test={test} canUpdate={canUpdate} id={id} />}
             {activeTab === "report" && <LabReportTab test={test} id={id} />}
 
-            {/* Delete Confirmation Modal */}
+            {/* Delete Modal */}
             <Modal open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} title="Delete Lab Order" size="sm">
                 <div className="space-y-4 mt-2">
-                    <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-100">
-                        <Trash2 className="w-5 h-5 text-red-500 shrink-0" />
+                    <div className="flex items-start gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                        <Trash2 className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
                         <div>
-                            <p className="text-sm font-medium text-red-800">Delete permanently?</p>
-                            <p className="text-sm text-red-600">This will permanently delete <strong>{test.labTestId}</strong>.</p>
+                            <p className="text-xs font-semibold text-red-800">Delete permanently?</p>
+                            <p className="text-xs text-red-600 mt-0.5">This will permanently delete <strong>{test.labTestId}</strong>.</p>
                         </div>
                     </div>
-                    <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                    <div className="flex justify-end gap-2 pt-2 border-t border-gray-300">
                         <Button variant="secondary" onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
-                        <Button variant="danger" loading={deleteMutation.isPending} onClick={() => deleteMutation.mutate()}>
-                            Delete Permanently
-                        </Button>
+                        <Button variant="danger" loading={deleteMutation.isPending} onClick={() => deleteMutation.mutate()}>Delete Permanently</Button>
                     </div>
                 </div>
             </Modal>
