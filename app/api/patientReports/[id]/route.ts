@@ -37,6 +37,12 @@ export async function PUT(req: NextRequest, { params }: Params) {
     if (body.status) update.status = body.status;
     if (body.additionalNotes !== undefined) update.additionalNotes = body.additionalNotes;
     if (body.reportUrl) update.reportUrl = body.reportUrl;
+    
+    // ✅ ADD THIS - Handle labTechnician updates
+    if (body.labTechnician) {
+        update["labTechnician.name"] = body.labTechnician.name;
+        update["labTechnician.signature"] = body.labTechnician.signature;
+    }
 
     const report = await Report.findByIdAndUpdate(id, update, { new: true }).lean();
     if (!report) return apiError("Report not found", 404);

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth/auth.config";
 import connectDB from "@/lib/db/mongoose";
-import { Invoice } from "@/models/operations.model";
+import { Invoice, LabTest } from "@/models/operations.model";
 import { apiSuccess, apiError, getIpFromHeaders } from "@/lib/utils";
 import { addPaymentSchema } from "@/lib/validations";
 import { auditLog, hasPermission } from "@/lib/auth/audit";
@@ -75,6 +75,21 @@ export async function POST(req: NextRequest, { params }: Params) {
   )
     .populate("patient", "firstName lastName patientId")
     .lean();
+
+  // --- LAB LOGIC: If invoice is now fully paid, mark lab orders as paid ---
+  if (updated && updated.invoiceType === "lab" && newStatus === "paid") {
+    const existingOrders = updated.items.filter(item => item.labOrderId);
+    
+    if (existingOrders.length > 0) {
+      await LabTest.updateMany(
+        { _id: { $in: existingOrders.map(i => i.labOrderId) } },
+        { 
+          isPaid: true, 
+          invoiceId: updated._id 
+        }
+      );
+    }
+  }
 
   await auditLog({
     userId: session.user.id,

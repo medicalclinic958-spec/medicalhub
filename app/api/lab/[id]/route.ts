@@ -24,6 +24,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     .populate("processedBy", "firstName lastName")
     .populate("approvedBy", "firstName lastName")
     .populate("tests.catalogId", "testName testCode category turnaroundTime")
+    .populate("invoiceId", "invoiceNumber")
     .lean();
 
   if (!test) return apiError("Lab test not found", 404);
@@ -87,9 +88,15 @@ export async function PUT(req: NextRequest, { params }: Params) {
   if (body.isPaid !== undefined) update.isPaid = body.isPaid;
   if (body.totalCost !== undefined) update.totalCost = body.totalCost;
 
+  // ✅ Handle invoiceId when marking as paid
+  if (body.isPaid === true && body.invoiceId) {
+    update.invoiceId = body.invoiceId;
+  }
+
   const test = await LabTest.findByIdAndUpdate(id, update, { new: true })
     .populate("patient", "firstName lastName patientId")
     .populate("requestedBy", "firstName lastName")
+    .populate("invoiceId", "invoiceNumber")  // ✅ Populate invoiceId
     .lean();
 
   if (!test) return apiError("Lab test not found", 404);
@@ -136,7 +143,9 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   await connectDB();
   const { id } = await params;
 
-  const test = await LabTest.findById(id);
+  const test = await LabTest.findById(id)
+    .populate("invoiceId", "invoiceNumber")
+    .lean();
   if (!test) return apiError("Lab test not found", 404);
 
   // Only allow deleting if pending or cancelled

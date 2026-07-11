@@ -146,6 +146,7 @@ export interface ILabTest extends Document {
   priority: string;
   totalCost: number;
   isPaid: boolean;
+  invoiceId?: mongoose.Types.ObjectId; 
 }
 
 const LabTestSchema = new Schema<ILabTest>(
@@ -189,6 +190,7 @@ const LabTestSchema = new Schema<ILabTest>(
     priority: { type: String, enum: ["routine", "urgent", "stat"], default: "routine" },
     totalCost: { type: Number, default: 0 },
     isPaid: { type: Boolean, default: false },
+    invoiceId: { type: Schema.Types.ObjectId, ref: "Invoice" },
   },
   { timestamps: true }
 );
@@ -217,6 +219,9 @@ export interface IInvoice extends Document {
     total: number;
     medicine?: mongoose.Types.ObjectId;
     batchNumber?: string;
+    labOrderId?: mongoose.Types.ObjectId;
+    catalogId?: mongoose.Types.ObjectId;
+
   }[];
   subtotal: number;
   discount: number;
@@ -266,6 +271,8 @@ const InvoiceSchema = new Schema<IInvoice>(
         total: { type: Number, required: true },
         medicine: { type: Schema.Types.ObjectId, ref: "Medicine" },
         batchNumber: String,
+        labOrderId: { type: Schema.Types.ObjectId, ref: "LabTest" },
+        catalogId: { type: Schema.Types.ObjectId, ref: "LabCatalog" },
       },
     ],
     subtotal: { type: Number, required: true },

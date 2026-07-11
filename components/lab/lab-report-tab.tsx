@@ -5,8 +5,8 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import axios from "axios";
-import { AlertTriangle, Save, Printer, Copy, Check } from "lucide-react";
-import { Card, CardBody, Badge, Button, Alert, FormField, Input } from "@/components/ui";
+import { AlertTriangle, Save, Printer, Copy, Check, Pencil } from "lucide-react";
+import { Card, CardBody, Badge, Button, Alert, FormField, Input, Modal } from "@/components/ui";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -49,11 +49,12 @@ export function LabReportTab({ test, id }: LabReportTabProps) {
     const qc = useQueryClient();
     const [error, setError] = useState("");
     const [copied, setCopied] = useState(false);
+    const [editModalOpen, setEditModalOpen] = useState(false);
 
     const abnormalCount = test.results?.filter(r => r.isAbnormal).length || 0;
     const missingResults = test.tests?.filter(t => !test.results?.some(r => r.testName === t.testName && r.value?.trim()));
 
-    const { data: reportData } = useQuery({
+    const { data: reportData, isLoading: reportLoading } = useQuery({
         queryKey: ["report", id],
         queryFn: () => axios.get(`/api/patientReports?labTestId=${id}`).then(r => {
             const reports = r.data?.data || [];
@@ -64,7 +65,7 @@ export function LabReportTab({ test, id }: LabReportTabProps) {
 
     const existingReport: ExistingReport | null = reportData || null;
 
-    const { register, handleSubmit, formState: { errors } } = useForm({
+    const { register, handleSubmit, formState: { errors }, setValue } = useForm({
         defaultValues: {
             technicianName: existingReport?.labTechnician?.name || "",
             technicianSignature: existingReport?.labTechnician?.signature || "",
@@ -75,7 +76,22 @@ export function LabReportTab({ test, id }: LabReportTabProps) {
     const saveMutation = useMutation({
         mutationFn: (d: { labTestId: string; labTechnician: { name: string; signature: string }; additionalNotes?: string }) =>
             axios.post("/api/patientReports", d),
-        onSuccess: () => { qc.invalidateQueries({ queryKey: ["report", id] }); toast.success("Report saved successfully!"); },
+        onSuccess: () => { 
+            qc.invalidateQueries({ queryKey: ["report", id] }); 
+            toast.success("Report saved successfully!"); 
+            setEditModalOpen(false);
+        },
+        onError: (e: unknown) => { const msg = (e as any)?.response?.data?.error || "Failed"; setError(msg); toast.error(msg); },
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: (d: { labTechnician: { name: string; signature: string }; additionalNotes?: string }) =>
+            axios.put(`/api/patientReports/${existingReport?._id}`, d),
+        onSuccess: () => { 
+            qc.invalidateQueries({ queryKey: ["report", id] }); 
+            toast.success("Report updated successfully!"); 
+            setEditModalOpen(false);
+        },
         onError: (e: unknown) => { const msg = (e as any)?.response?.data?.error || "Failed"; setError(msg); toast.error(msg); },
     });
 
@@ -84,7 +100,28 @@ export function LabReportTab({ test, id }: LabReportTabProps) {
             setError(`Missing results for: ${missingResults.map(t => t.testName).join(", ")}`);
             return;
         }
-        saveMutation.mutate({ labTestId: id, labTechnician: { name: data.technicianName, signature: data.technicianSignature }, additionalNotes: data.additionalNotes });
+        saveMutation.mutate({ 
+            labTestId: id, 
+            labTechnician: { name: data.technicianName, signature: data.technicianSignature }, 
+            additionalNotes: data.additionalNotes 
+        });
+    };
+
+const onUpdate = (data: { technicianName: string; technicianSignature: string; additionalNotes: string }) => {
+    updateMutation.mutate({ 
+        labTechnician: { 
+            name: data.technicianName, 
+            signature: data.technicianSignature 
+        }, 
+        additionalNotes: data.additionalNotes 
+    });
+};
+
+    const openEditModal = () => {
+        setValue("technicianName", existingReport?.labTechnician?.name || "");
+        setValue("technicianSignature", existingReport?.labTechnician?.signature || "");
+        setValue("additionalNotes", existingReport?.additionalNotes || "");
+        setEditModalOpen(true);
     };
 
     const handlePrint = () => {
@@ -149,10 +186,15 @@ export function LabReportTab({ test, id }: LabReportTabProps) {
             {existingReport && (
                 <Card>
                     <CardBody>
-                        {/* Header */}
-                        <div className="text-center mb-4 pb-3 border-b border-gray-200">
-                            <h2 className="text-base font-bold text-gray-900 uppercase tracking-wide">Laboratory Report</h2>
-                            <p className="text-xs text-gray-400 mt-1">{existingReport.reportId || test.labTestId}</p>
+                        {/* Header with Edit Button */}
+                        <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200">
+                            <div className="text-center flex-1">
+                                <h2 className="text-base font-bold text-gray-900 uppercase tracking-wide">Laboratory Report</h2>
+                                <p className="text-xs text-gray-400 mt-1">{existingReport.reportId || test.labTestId}</p>
+                            </div>
+                            <Button size="sm" variant="secondary" onClick={openEditModal}>
+                                <Pencil className="w-3.5 h-3.5" /> Edit
+                            </Button>
                         </div>
 
                         {/* Patient & Order Info */}
@@ -237,7 +279,7 @@ export function LabReportTab({ test, id }: LabReportTabProps) {
             )}
 
             {/* Save Form */}
-            {!existingReport && isReportable && (
+            {!existingReport && isReportable && !reportLoading && (
                 <Card>
                     <CardBody>
                         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -266,6 +308,27 @@ export function LabReportTab({ test, id }: LabReportTabProps) {
                     </CardBody>
                 </Card>
             )}
+
+            {/* Edit Modal */}
+            <Modal open={editModalOpen} onClose={() => setEditModalOpen(false)} title="Edit Report Details" size="md">
+                <form onSubmit={handleSubmit(onUpdate)} className="space-y-4 mt-2">
+                    <FormField label="Lab Technician Name" required error={errors.technicianName?.message}>
+                        <Input {...register("technicianName", { required: "Name is required" })} placeholder="Full name" />
+                    </FormField>
+                    <FormField label="Signature" required error={errors.technicianSignature?.message}>
+                        <Input {...register("technicianSignature", { required: "Signature is required" })} placeholder="e.g. Dr. Smith" />
+                    </FormField>
+                    <FormField label="Additional Notes">
+                        <Input {...register("additionalNotes")} placeholder="Any observations..." />
+                    </FormField>
+                    <div className="flex justify-end gap-2 pt-2 border-t border-gray-300">
+                        <Button variant="secondary" onClick={() => setEditModalOpen(false)}>Cancel</Button>
+                        <Button type="submit" loading={updateMutation.isPending}>
+                            <Save className="w-3.5 h-3.5" /> Update Report
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
         </div>
     );
 }

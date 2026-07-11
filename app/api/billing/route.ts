@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth/auth.config";
 import connectDB from "@/lib/db/mongoose";
-import { Invoice } from "@/models/operations.model";
+import { Invoice, LabTest } from "@/models/operations.model";
 import { apiSuccess, apiError, getPaginationParams, buildPagination, getIpFromHeaders } from "@/lib/utils";
 import { createInvoiceSchema } from "@/lib/validations";
 import { auditLog, hasPermission } from "@/lib/auth/audit";
@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
   const taxAmount = parsed.data.tax || 0;
   const total = subtotal - discountAmount + taxAmount;
 
+  // Create invoice
   const invoice = await Invoice.create({
     ...parsed.data,
     items,
@@ -74,6 +75,21 @@ export async function POST(req: NextRequest) {
     createdBy: session.user.id,
   });
 
+  // --- LAB LOGIC: Only mark existing lab orders as paid ---
+  if (invoice.invoiceType === "lab" && invoice.status === "paid") {
+    const existingOrders = invoice.items.filter(item => item.labOrderId);
+    
+    if (existingOrders.length > 0) {
+      await LabTest.updateMany(
+        { _id: { $in: existingOrders.map(i => i.labOrderId) } },
+        { 
+          isPaid: true, 
+          invoiceId: invoice._id 
+        }
+      );
+    }
+  }
+
   const populated = await Invoice.findById(invoice._id)
     .populate("patient", "firstName lastName patientId")
     .lean();
@@ -82,7 +98,7 @@ export async function POST(req: NextRequest) {
     userId: session.user.id,
     action: "create",
     module: "billing",
-    description: `Created invoice ${invoice.invoiceNumber} for amount ${total}`,
+    description: `Created ${invoice.invoiceType} invoice ${invoice.invoiceNumber} for amount ${total}`,
     resourceId: invoice._id.toString(),
     resourceType: "Invoice",
     ipAddress: getIpFromHeaders(req.headers),

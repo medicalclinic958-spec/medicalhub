@@ -103,6 +103,7 @@ export async function POST(req: NextRequest) {
   const populated = await LabTest.findById(test._id)
     .populate("patient", "firstName lastName patientId")
     .populate("requestedBy", "firstName lastName")
+    .populate("invoiceId", "invoiceNumber")
     .lean();
 
   await auditLog({

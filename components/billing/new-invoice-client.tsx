@@ -13,6 +13,7 @@ import { formatCurrency, cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { OpdInvoiceSection } from "./opd-invoice-section";
 import { PharmacySaleSection } from "./pharmacy-sale-section";
+import { LabInvoiceSection } from "./lab-invoice-section";
 import { OtherInvoiceSection } from "./other-invoice-section";
 
 interface LineItem {
@@ -23,10 +24,12 @@ interface LineItem {
   total: number;
   medicine?: string;
   batchNumber?: string;
+  labOrderId?: string;
+  catalogId?: string;
 }
 
 interface FormValues {
-  invoiceType: "opd" | "pharmacy_sale" | "other";
+  invoiceType: "opd" | "pharmacy_sale" | "lab" | "other";
   patient?: string;
   patientName?: string;
   doctor?: string;
@@ -130,6 +133,7 @@ export function NewInvoiceClient() {
               <Select {...register("invoiceType")}>
                 <option value="opd">OPD / Consultation</option>
                 <option value="pharmacy_sale">Pharmacy Sale (Patient)</option>
+                <option value="lab">Lab Test</option>
                 <option value="other">Other</option>
               </Select>
             </FormField>
@@ -153,6 +157,15 @@ export function NewInvoiceClient() {
             watchedItems={watchedItems}
             setValue={setValue}
             register={register}
+          />
+        )}
+
+        {invoiceType === "lab" && (
+          <LabInvoiceSection
+            watchedItems={watchedItems}
+            setValue={setValue}
+            register={register}
+            patientId={selectedPatient}
           />
         )}
 
@@ -180,6 +193,16 @@ export function NewInvoiceClient() {
                         <span className="text-xs text-gray-400">
                           Qty: {item.quantity} × {formatCurrency(item.unitPrice)}
                         </span>
+                        {item.labOrderId && (
+                          <span className="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                            Existing Order
+                          </span>
+                        )}
+                        {item.catalogId && !item.labOrderId && (
+                          <span className="text-xs text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded">
+                            New Test
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
