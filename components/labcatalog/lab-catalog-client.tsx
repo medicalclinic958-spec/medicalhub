@@ -3,9 +3,9 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import axios from "axios";
-import { Plus, Search, Filter, ChevronDown, X, Trash2 } from "lucide-react";
+import { Plus, Search, Filter, ChevronDown, X, Trash2, FlaskConical } from "lucide-react";
 import {
     Card, Table, Th, Td, StatusBadge, Button,
     Modal, FormField, Input, Select, EmptyState, Pagination, Badge, Alert,
@@ -17,18 +17,47 @@ import { createLabCatalogSchema, updateLabCatalogSchema } from "@/lib/validation
 import { z } from "zod";
 import { toast } from "sonner";
 
+interface LabCatalogParameter {
+    name: string;
+    unit?: string;
+    referenceRange?: string;
+    minValue?: number;
+    maxValue?: number;
+    dataType: "number" | "text" | "boolean";
+}
+
 interface LabCatalogItem {
     _id: string; testName: string; testCode: string; category: string;
     cost: number; turnaroundTime: number; isActive: boolean;
+    parameters?: LabCatalogParameter[];
 }
+
+type CreateFormData = z.infer<typeof createLabCatalogSchema>;
+type UpdateFormData = z.infer<typeof updateLabCatalogSchema>;
 
 const LAB_CATEGORIES = [
     "Hematology", "Biochemistry", "Microbiology", "Pathology",
     "Immunology", "Urinalysis", "Radiology", "Cardiac", "Hormone", "Other"
 ];
 
-type CreateFormData = z.infer<typeof createLabCatalogSchema>;
-type UpdateFormData = z.infer<typeof updateLabCatalogSchema>;
+const DATA_TYPES: { value: LabCatalogParameter["dataType"]; label: string }[] = [
+    { value: "text", label: "Text" },
+    { value: "number", label: "Number" },
+    { value: "boolean", label: "Boolean" },
+];
+
+function cleanParameters(params: Partial<LabCatalogParameter>[] = []): LabCatalogParameter[] {
+    return params
+        .filter(p => p.name?.trim())
+        .map(p => ({
+            name: p.name!.trim(),
+            unit: p.unit?.trim() || undefined,
+            referenceRange: p.referenceRange?.trim() || undefined,
+            minValue: p.minValue !== undefined && p.minValue !== null && !Number.isNaN(p.minValue) ? Number(p.minValue) : undefined,
+            maxValue: p.maxValue !== undefined && p.maxValue !== null && !Number.isNaN(p.maxValue) ? Number(p.maxValue) : undefined,
+            dataType: p.dataType || "text",
+        }));
+}
 
 export function LabCatalogClient() {
     const { data: session } = useSession();
@@ -44,6 +73,8 @@ export function LabCatalogClient() {
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [deletingItem, setDeletingItem] = useState<LabCatalogItem | null>(null);
     const [filtersOpen, setFiltersOpen] = useState(false);
+    const [viewParamsOpen, setViewParamsOpen] = useState(false);
+    const [viewingItem, setViewingItem] = useState<LabCatalogItem | null>(null);
 
     const isSA = session?.user?.isSuperAdmin;
     const perms = session?.user?.permissions || [];
@@ -65,54 +96,113 @@ export function LabCatalogClient() {
 
     const createForm = useForm<CreateFormData>({
         resolver: zodResolver(createLabCatalogSchema),
-        defaultValues: { testName: "", testCode: "", category: "Hematology", cost: 0, turnaroundTime: 24, isActive: true },
+        defaultValues: {
+            testName: "", testCode: "", category: "Hematology",
+            cost: 0, turnaroundTime: 24, isActive: true, parameters: [],
+        },
     });
 
-    const editForm = useForm<UpdateFormData>({ resolver: zodResolver(updateLabCatalogSchema) });
+    const editForm = useForm<UpdateFormData>({
+        resolver: zodResolver(updateLabCatalogSchema),
+        defaultValues: { parameters: [] },
+    });
+
+    const { fields: createParams, append: appendCreateParam, remove: removeCreateParam } = useFieldArray({
+        control: createForm.control, name: "parameters",
+    });
+
+    const { fields: editParams, append: appendEditParam, remove: removeEditParam } = useFieldArray({
+        control: editForm.control, name: "parameters",
+    });
 
     const createMutation = useMutation({
-        mutationFn: (d: CreateFormData) => axios.post("/api/labcatalog", d),
-        onSuccess: () => { qc.invalidateQueries({ queryKey: ["lab-catalog"] }); setCreateOpen(false); createForm.reset(); setFormError(""); toast.success("Test added successfully!"); },
-        onError: (e: unknown) => { const msg = (e as any)?.response?.data?.error || "Failed"; setFormError(msg); toast.error(msg); },
+        mutationFn: (d: any) => axios.post("/api/labcatalog", d),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["lab-catalog"] });
+            setCreateOpen(false);
+            createForm.reset();
+            setFormError("");
+            toast.success("Test added successfully!");
+        },
+        onError: (e: unknown) => {
+            const msg = (e as any)?.response?.data?.error || "Failed";
+            setFormError(msg); toast.error(msg);
+        },
     });
 
     const updateMutation = useMutation({
-        mutationFn: ({ id, data }: { id: string; data: UpdateFormData }) => axios.put(`/api/labcatalog/${id}`, data),
-        onSuccess: () => { qc.invalidateQueries({ queryKey: ["lab-catalog"] }); setEditOpen(false); setEditingItem(null); editForm.reset(); setFormError(""); toast.success("Test updated successfully!"); },
-        onError: (e: unknown) => { const msg = (e as any)?.response?.data?.error || "Failed"; setFormError(msg); toast.error(msg); },
+        mutationFn: ({ id, data }: { id: string; data: any }) => axios.put(`/api/labcatalog/${id}`, data),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["lab-catalog"] });
+            setEditOpen(false); setEditingItem(null); editForm.reset(); setFormError("");
+            toast.success("Test updated successfully!");
+        },
+        onError: (e: unknown) => {
+            const msg = (e as any)?.response?.data?.error || "Failed";
+            setFormError(msg); toast.error(msg);
+        },
     });
 
     const deleteMutation = useMutation({
         mutationFn: (id: string) => axios.delete(`/api/labcatalog/${id}`),
-        onSuccess: () => { qc.invalidateQueries({ queryKey: ["lab-catalog"] }); setDeleteConfirmOpen(false); setDeletingItem(null); toast.success("Test deleted!"); },
-        onError: (e: unknown) => { toast.error((e as any)?.response?.data?.error || "Failed to delete"); },
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["lab-catalog"] });
+            setDeleteConfirmOpen(false); setDeletingItem(null);
+            toast.success("Test deleted!");
+        },
+        onError: (e: unknown) => toast.error((e as any)?.response?.data?.error || "Failed to delete"),
     });
 
     const handleEdit = (item: LabCatalogItem) => {
         setEditingItem(item);
-        editForm.reset({ testName: item.testName, testCode: item.testCode, category: item.category, cost: item.cost, turnaroundTime: item.turnaroundTime, isActive: item.isActive });
+        editForm.reset({
+            testName: item.testName, testCode: item.testCode, category: item.category,
+            cost: item.cost, turnaroundTime: item.turnaroundTime, isActive: item.isActive,
+            parameters: item.parameters ?? [],
+        });
         setEditOpen(true);
         setFormError("");
     };
 
     const onEditSubmit = (data: UpdateFormData) => {
-        const changedData: UpdateFormData = {};
-        if (data.testName !== undefined && data.testName !== editingItem?.testName) changedData.testName = data.testName;
-        if (data.testCode !== undefined && data.testCode !== editingItem?.testCode) changedData.testCode = data.testCode;
-        if (data.category !== undefined && data.category !== editingItem?.category) changedData.category = data.category;
-        if (data.cost !== undefined && data.cost !== editingItem?.cost) changedData.cost = data.cost;
-        if (data.turnaroundTime !== undefined && data.turnaroundTime !== editingItem?.turnaroundTime) changedData.turnaroundTime = data.turnaroundTime;
-        if (data.isActive !== undefined) { const v = typeof data.isActive === "string" ? data.isActive === "true" : data.isActive; if (v !== editingItem?.isActive) changedData.isActive = v; }
-        if (Object.keys(changedData).length === 0) { setEditOpen(false); return; }
+        const changedData: any = {};
+        if (data.testName !== editingItem?.testName) changedData.testName = data.testName;
+        if (data.testCode !== editingItem?.testCode) changedData.testCode = data.testCode;
+        if (data.category !== editingItem?.category) changedData.category = data.category;
+        if (data.cost !== editingItem?.cost) changedData.cost = data.cost;
+        if (data.turnaroundTime !== editingItem?.turnaroundTime) changedData.turnaroundTime = data.turnaroundTime;
+        if (data.isActive !== undefined) {
+            const v = typeof data.isActive === "string" ? data.isActive === "true" : data.isActive;
+            if (v !== editingItem?.isActive) changedData.isActive = v;
+        }
+        const cleaned = cleanParameters(data.parameters as any);
+        if (JSON.stringify(editingItem?.parameters || []) !== JSON.stringify(cleaned)) changedData.parameters = cleaned;
+        if (Object.keys(changedData).length === 0) { toast.warning("No changes made"); return; }
         if (editingItem) updateMutation.mutate({ id: editingItem._id, data: changedData });
     };
+
+    const onCreateSubmit = (data: CreateFormData) => {
+        createMutation.mutate({
+            ...data,
+            parameters: cleanParameters(data.parameters as any),
+        });
+    };
+
+    const handleViewParams = (item: LabCatalogItem) => { setViewingItem(item); setViewParamsOpen(true); };
 
     return (
         <div className="space-y-4">
             {/* Header */}
             <div className="flex items-center justify-between gap-3">
-                <div><h1 className="text-lg font-semibold text-gray-900">Lab Test Catalog</h1><p className="text-xs text-gray-500 mt-0.5">{pagination?.total ?? 0} test{pagination?.total !== 1 ? "s" : ""} in catalog</p></div>
-                {canCreate && <Button onClick={() => { setCreateOpen(true); setFormError(""); createForm.reset(); }} size="sm"><Plus className="w-3.5 h-3.5" /> Add Test</Button>}
+                <div>
+                    <h1 className="text-lg font-semibold text-gray-900">Lab Test Catalog</h1>
+                    <p className="text-xs text-gray-500 mt-0.5">{pagination?.total ?? 0} test{pagination?.total !== 1 ? "s" : ""} in catalog</p>
+                </div>
+                {canCreate && (
+                    <Button onClick={() => { setCreateOpen(true); setFormError(""); createForm.reset(); }} size="sm">
+                        <Plus className="w-3.5 h-3.5" /> Add Test
+                    </Button>
+                )}
             </div>
 
             {/* Search + Filter Toggle */}
@@ -149,24 +239,31 @@ export function LabCatalogClient() {
             {/* Desktop Table */}
             <Card className="hidden md:block overflow-x-auto">
                 <Table>
-                    <thead><tr><Th>Code</Th><Th>Test Name</Th><Th>Category</Th><Th>Cost</Th><Th>TAT (hrs)</Th><Th>Status</Th><Th>Actions</Th></tr></thead>
+                    <thead><tr><Th>Code</Th><Th>Test Name</Th><Th>Category</Th><Th>Cost</Th><Th>TAT</Th><Th>Parameters</Th><Th>Status</Th><Th>Actions</Th></tr></thead>
                     <tbody>
-                        {isLoading ? [...Array(8)].map((_, i) => <tr key={i}>{[...Array(7)].map((_, j) => <Td key={j}><div className="h-4 bg-gray-100 rounded" /></Td>)}</tr>) :
-                            catalogItems.length === 0 ? <tr><td colSpan={7}><EmptyState title="No tests found" description={search || categoryFilter ? "Try adjusting your filters" : "Start by adding your first lab test"} action={canCreate ? <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="w-3.5 h-3.5" /> Add Test</Button> : undefined} /></td></tr> :
+                        {isLoading ? [...Array(8)].map((_, i) => <tr key={i}>{[...Array(8)].map((_, j) => <Td key={j}><div className="h-4 bg-gray-100 rounded" /></Td>)}</tr>) :
+                            catalogItems.length === 0 ? <tr><td colSpan={8}><EmptyState title="No tests found" description={search || categoryFilter ? "Try adjusting your filters" : "Start by adding your first lab test"} action={canCreate ? <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="w-3.5 h-3.5" /> Add Test</Button> : undefined} /></td></tr> :
                                 catalogItems.map(item => (
-                                    <tr key={item._id}>
+                                    <tr key={item._id} onClick={() => handleViewParams(item)} className="cursor-pointer">
                                         <Td><span className="font-medium text-gray-900">{item.testCode}</span></Td>
                                         <Td><span className="font-medium text-gray-900">{item.testName}</span></Td>
                                         <Td><Badge variant="outline">{item.category}</Badge></Td>
                                         <Td className="text-gray-600">{formatCurrency(item.cost)}</Td>
                                         <Td className="text-gray-500">{item.turnaroundTime}h</Td>
+                                        <Td>{item.parameters?.length ? <div className="flex flex-wrap gap-1">{item.parameters.slice(0, 2).map(p => <Badge key={p.name} variant="outline" className="text-[10px]">{p.name}{p.unit ? ` (${p.unit})` : ""}</Badge>)}{item.parameters.length > 2 && <span className="text-xs text-gray-400">+{item.parameters.length - 2}</span>}</div> : <span className="text-gray-300">—</span>}</Td>
                                         <Td><StatusBadge status={item.isActive ? "active" : "inactive"} /></Td>
-                                        <Td>
-                                            <div className="flex items-center gap-1">
-                                                {canUpdate && <Button size="sm" variant="secondary" onClick={() => handleEdit(item)}>Edit</Button>}
-                                                {canDelete && <Button size="sm" variant="danger" onClick={() => { setDeletingItem(item); setDeleteConfirmOpen(true); }}><Trash2 className="w-3.5 h-3.5" /></Button>}
-                                            </div>
-                                        </Td>
+                                        <Td><div className="flex items-center gap-1">
+                                            {canUpdate && (
+                                                <Button size="sm" variant="secondary" onClick={e => { e.stopPropagation(); handleEdit(item); }}>
+                                                    Edit
+                                                </Button>
+                                            )}
+                                            {canDelete && (
+                                                <Button size="sm" variant="danger" onClick={e => { e.stopPropagation(); setDeletingItem(item); setDeleteConfirmOpen(true); }}>
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </Button>
+                                            )}
+                                        </div></Td>
                                     </tr>))}
                     </tbody>
                 </Table>
@@ -178,15 +275,12 @@ export function LabCatalogClient() {
                 {isLoading ? [...Array(5)].map((_, i) => <div key={i} className="p-3 flex items-center justify-between"><div className="space-y-2"><div className="h-4 bg-gray-100 rounded w-28" /><div className="h-3 bg-gray-100 rounded w-20" /></div><div className="h-7 bg-gray-100 rounded w-14" /></div>) :
                     catalogItems.length === 0 ? <EmptyState title="No tests found" description={search || categoryFilter ? "Try adjusting your filters" : "Add your first lab test"} action={canCreate ? <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="w-3.5 h-3.5" /> Add Test</Button> : undefined} /> :
                         catalogItems.map(item => (
-                            <div key={item._id} className="flex items-center justify-between p-3 gap-2">
+                            <div key={item._id} onClick={() => handleViewParams(item)} className="flex items-center justify-between p-3 gap-2 cursor-pointer">
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2"><span className="text-xs font-medium text-gray-900">{item.testName}</span><StatusBadge status={item.isActive ? "active" : "inactive"} /></div>
                                     <div className="flex items-center gap-2 mt-0.5"><span className="text-xs text-gray-500">{item.testCode}</span><span className="text-xs text-gray-400">•</span><span className="text-xs text-gray-500">{formatCurrency(item.cost)}</span></div>
                                 </div>
-                                <div className="flex items-center gap-1">
-                                    {canUpdate && <Button size="sm" variant="secondary" onClick={() => handleEdit(item)}>Edit</Button>}
-                                    {canDelete && <Button size="sm" variant="danger" onClick={() => { setDeletingItem(item); setDeleteConfirmOpen(true); }}><Trash2 className="w-3.5 h-3.5" /></Button>}
-                                </div>
+                                <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>{canUpdate && <Button size="sm" variant="secondary" onClick={() => handleEdit(item)}>Edit</Button>}{canDelete && <Button size="sm" variant="danger" onClick={() => { setDeletingItem(item); setDeleteConfirmOpen(true); }}><Trash2 className="w-3.5 h-3.5" /></Button>}</div>
                             </div>))}
                 {pagination && pagination.totalPages > 1 && <div className="px-4 py-3 flex justify-center"><Pagination page={page} totalPages={pagination.totalPages} onPage={setPage} /></div>}
             </div>
@@ -194,7 +288,7 @@ export function LabCatalogClient() {
             {/* Create Modal */}
             <Modal open={createOpen} onClose={() => { setCreateOpen(false); createForm.reset(); setFormError(""); }} title="Add Lab Test" size="md">
                 {formError && <Alert type="error">{formError}</Alert>}
-                <form onSubmit={createForm.handleSubmit((d) => createMutation.mutate(d))} className="space-y-4 mt-2">
+                <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4 mt-2">
                     <FormField label="Test Name" required error={createForm.formState.errors.testName?.message}><Input {...createForm.register("testName")} placeholder="e.g., Complete Blood Count" /></FormField>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <FormField label="Test Code" required error={createForm.formState.errors.testCode?.message}><Input {...createForm.register("testCode")} placeholder="e.g., CBC" className="uppercase" /></FormField>
@@ -204,6 +298,34 @@ export function LabCatalogClient() {
                         <FormField label="Cost" required error={createForm.formState.errors.cost?.message}><Input type="number" step="0.01" {...createForm.register("cost", { valueAsNumber: true })} /></FormField>
                         <FormField label="Turnaround Time (hours)"><Input type="number" {...createForm.register("turnaroundTime", { valueAsNumber: true })} /></FormField>
                     </div>
+
+                    {/* Parameters */}
+                    <div>
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="text-xs font-medium text-gray-600">Parameters</label>
+                            <Button type="button" size="sm" variant="secondary" onClick={() => appendCreateParam({ name: "", unit: "", referenceRange: "", dataType: "text" })}><Plus className="w-3 h-3" /> Add</Button>
+                        </div>
+                        {createParams.length > 0 && (
+                            <div className="space-y-2">
+                                {createParams.map((field, index) => (
+                                    <div key={field.id} className="border border-gray-200 rounded-lg p-2.5 space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <Input placeholder="Parameter name" {...createForm.register(`parameters.${index}.name`)} className="flex-1 text-xs" />
+                                            <Select {...createForm.register(`parameters.${index}.dataType`)} className="w-24 text-xs">{DATA_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</Select>
+                                            <Button type="button" size="sm" variant="danger" onClick={() => removeCreateParam(index)}><X className="w-3 h-3" /></Button>
+                                        </div>
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                            <Input placeholder="Unit" {...createForm.register(`parameters.${index}.unit`)} className="text-xs" />
+                                            <Input placeholder="Ref range" {...createForm.register(`parameters.${index}.referenceRange`)} className="text-xs" />
+                                            {/* <Input type="number" step="any" placeholder="Min" {...createForm.register(`parameters.${index}.minValue`, { valueAsNumber: true })} className="text-xs" />
+                                            <Input type="number" step="any" placeholder="Max" {...createForm.register(`parameters.${index}.maxValue`, { valueAsNumber: true })} className="text-xs" /> */}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
                     <div className="flex justify-end gap-2 pt-2 border-t border-gray-300"><Button type="button" variant="secondary" onClick={() => { setCreateOpen(false); createForm.reset(); }}>Cancel</Button><Button type="submit" loading={createMutation.isPending}>Add Test</Button></div>
                 </form>
             </Modal>
@@ -221,6 +343,20 @@ export function LabCatalogClient() {
                         <FormField label="Cost" error={editForm.formState.errors.cost?.message}><Input type="number" step="0.01" {...editForm.register("cost", { valueAsNumber: true })} /></FormField>
                         <FormField label="Turnaround Time (hours)"><Input type="number" {...editForm.register("turnaroundTime", { valueAsNumber: true })} /></FormField>
                     </div>
+                    <div>
+                        <div className="flex items-center justify-between mb-2"><label className="text-xs font-medium text-gray-600">Parameters</label><Button type="button" size="sm" variant="secondary" onClick={() => appendEditParam({ name: "", unit: "", referenceRange: "", dataType: "text" })}><Plus className="w-3 h-3" /> Add</Button></div>
+                        {editParams.length > 0 && (
+                            <div className="space-y-2">
+                                {editParams.map((field, index) => (
+                                    <div key={field.id} className="border border-gray-200 rounded-lg p-2.5 space-y-2">
+                                        <div className="flex items-center gap-2"><Input placeholder="Parameter name" {...editForm.register(`parameters.${index}.name`)} className="flex-1 text-xs" /><Select {...editForm.register(`parameters.${index}.dataType`)} className="w-24 text-xs">{DATA_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</Select><Button type="button" size="sm" variant="danger" onClick={() => removeEditParam(index)}><X className="w-3 h-3" /></Button></div>
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2"><Input placeholder="Unit" {...editForm.register(`parameters.${index}.unit`)} className="text-xs" /><Input placeholder="Ref range" {...editForm.register(`parameters.${index}.referenceRange`)} className="text-xs" />
+                                        {/* <Input type="number" step="any" placeholder="Min" {...editForm.register(`parameters.${index}.minValue`, { valueAsNumber: true })} className="text-xs" /><Input type="number" step="any" placeholder="Max" {...editForm.register(`parameters.${index}.maxValue`, { valueAsNumber: true })} className="text-xs" />*/}</div> 
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                     <FormField label="Status"><Select {...editForm.register("isActive")}><option value="true">Active</option><option value="false">Inactive</option></Select></FormField>
                     <div className="flex justify-end gap-2 pt-2 border-t border-gray-300"><Button type="button" variant="secondary" onClick={() => { setEditOpen(false); editForm.reset(); }}>Cancel</Button><Button type="submit" loading={updateMutation.isPending}>Save Changes</Button></div>
                 </form>
@@ -228,9 +364,33 @@ export function LabCatalogClient() {
 
             {/* Delete Modal */}
             <Modal open={deleteConfirmOpen} onClose={() => { setDeleteConfirmOpen(false); setDeletingItem(null); }} title="Delete Lab Test" size="sm">
+                <div className="space-y-4 mt-2"><div className="flex items-start gap-3 p-3 bg-red-50 rounded-lg border border-red-200"><Trash2 className="w-5 h-5 text-red-500 shrink-0 mt-0.5" /><div><p className="text-xs font-semibold text-red-800">Delete permanently?</p><p className="text-xs text-red-600 mt-0.5">This will permanently delete <strong>{deletingItem?.testCode} - {deletingItem?.testName}</strong>.</p></div></div><div className="flex justify-end gap-2 pt-2 border-t border-gray-300"><Button variant="secondary" onClick={() => { setDeleteConfirmOpen(false); setDeletingItem(null); }}>Cancel</Button><Button variant="danger" loading={deleteMutation.isPending} onClick={() => { if (deletingItem) deleteMutation.mutate(deletingItem._id); }}>Delete Permanently</Button></div></div>
+            </Modal>
+
+            {/* View Modal */}
+            <Modal open={viewParamsOpen} onClose={() => { setViewParamsOpen(false); setViewingItem(null); }} title={viewingItem?.testName || "Test Details"} size="md">
                 <div className="space-y-4 mt-2">
-                    <div className="flex items-start gap-3 p-3 bg-red-50 rounded-lg border border-red-200"><Trash2 className="w-5 h-5 text-red-500 shrink-0 mt-0.5" /><div><p className="text-xs font-semibold text-red-800">Delete permanently?</p><p className="text-xs text-red-600 mt-0.5">This will permanently delete <strong>{deletingItem?.testCode} - {deletingItem?.testName}</strong>.</p></div></div>
-                    <div className="flex justify-end gap-2 pt-2 border-t border-gray-300"><Button variant="secondary" onClick={() => { setDeleteConfirmOpen(false); setDeletingItem(null); }}>Cancel</Button><Button variant="danger" loading={deleteMutation.isPending} onClick={() => { if (deletingItem) deleteMutation.mutate(deletingItem._id); }}>Delete Permanently</Button></div>
+                    {viewingItem && (
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                            <div><span className="text-gray-400">Code:</span> <span className="font-medium text-gray-900">{viewingItem.testCode}</span></div>
+                            <div><span className="text-gray-400">Category:</span> <span className="font-medium text-gray-900">{viewingItem.category}</span></div>
+                            <div><span className="text-gray-400">Cost:</span> <span className="font-medium text-gray-900">{formatCurrency(viewingItem.cost)}</span></div>
+                            <div><span className="text-gray-400">TAT:</span> <span className="font-medium text-gray-900">{viewingItem.turnaroundTime}h</span></div>
+                        </div>
+                    )}
+                    {viewingItem?.parameters?.length ? (
+                        <div className="divide-y divide-gray-100 border border-gray-300 rounded-lg overflow-hidden">
+                            {viewingItem.parameters.map(p => (
+                                <div key={p.name} className="flex items-center justify-between px-4 py-3 bg-white">
+                                    <span className="text-xs font-medium text-gray-700">{p.name}</span>
+                                    <span className="text-xs text-gray-900">{p.referenceRange || "—"}{p.unit ? ` ${p.unit}` : ""}</span>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-8"><p className="text-xs text-gray-400">No parameters defined</p></div>
+                    )}
+                    <div className="flex justify-end pt-2 border-t border-gray-300"><Button variant="secondary" onClick={() => { setViewParamsOpen(false); setViewingItem(null); }}>Close</Button></div>
                 </div>
             </Modal>
         </div>

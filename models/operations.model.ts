@@ -93,6 +93,16 @@ const MedicineSchema = new Schema<IMedicine>(
 MedicineSchema.index({ name: "text", genericName: "text" });
 
 // ─── LAB TEST CATALOG MODEL ───────────────────────────────
+// ─── LAB CATALOG MODEL ─────────────────────────────────
+export interface ILabCatalogParameter {
+  name: string;              // "TSH"
+  unit?: string;              // "mIU/L"
+  referenceRange?: string;    // "0.4-4.0" (display string, kept for backward compat / reports)
+  minValue?: number;          // 0.4  — used for auto isAbnormal calc when dataType is "number"
+  maxValue?: number;          // 4.0
+  dataType: "number" | "text" | "boolean";
+}
+
 export interface ILabCatalog extends Document {
   testName: string;
   testCode: string;
@@ -100,7 +110,20 @@ export interface ILabCatalog extends Document {
   cost: number;
   turnaroundTime: number; // hours
   isActive: boolean;
+  parameters: ILabCatalogParameter[]; // ✅ structured, was Record<string, ...>
 }
+
+const LabCatalogParameterSchema = new Schema<ILabCatalogParameter>(
+  {
+    name: { type: String, required: true, trim: true },
+    unit: String,
+    referenceRange: String,
+    minValue: Number,
+    maxValue: Number,
+    dataType: { type: String, enum: ["number", "text", "boolean"], default: "text" },
+  },
+  { _id: false } // no need for a separate _id per parameter row
+);
 
 const LabCatalogSchema = new Schema<ILabCatalog>(
   {
@@ -110,18 +133,35 @@ const LabCatalogSchema = new Schema<ILabCatalog>(
     cost: { type: Number, required: true, default: 0 },
     turnaroundTime: { type: Number, default: 24 },
     isActive: { type: Boolean, default: true },
+    parameters: { type: [LabCatalogParameterSchema], default: [] }, // ✅ was Schema.Types.Mixed
   },
   { timestamps: true }
 );
 
 // ─── LAB TEST ORDER MODEL ─────────────────────────────────
+export interface ILabTestParameterResult {
+  parameterName: string;
+  value: string | number | boolean;
+  unit?: string;
+  referenceRange?: string;
+  isAbnormal?: boolean;
+}
+
+export interface ILabTestResult {
+  catalogId: mongoose.Types.ObjectId;
+  testName: string;
+  testCode?: string;
+  parameterResults: ILabTestParameterResult[];
+  notes?: string;
+}
+
 export interface ILabTest extends Document {
   labTestId: string;
   patient: mongoose.Types.ObjectId;
   requestedBy: mongoose.Types.ObjectId;
   appointment?: mongoose.Types.ObjectId;
   tests: {
-    catalogId: mongoose.Types.ObjectId;  // ← ADD THIS
+    catalogId: mongoose.Types.ObjectId;
     testName: string;
     testCode?: string;
     category: string;
@@ -133,21 +173,36 @@ export interface ILabTest extends Document {
   processedBy?: mongoose.Types.ObjectId;
   completedAt?: Date;
   approvedBy?: mongoose.Types.ObjectId;
-  results: {
-    testName: string;
-    value: string;
-    unit?: string;
-    referenceRange?: string;
-    isAbnormal?: boolean;
-    notes?: string;
-  }[];
+  results: ILabTestResult[]; // ✅ restructured, nested per test/parameter
   reportUrl?: string;
   notes?: string;
   priority: string;
   totalCost: number;
   isPaid: boolean;
-  invoiceId?: mongoose.Types.ObjectId; 
+  invoiceId?: mongoose.Types.ObjectId;
 }
+
+const LabTestParameterResultSchema = new Schema<ILabTestParameterResult>(
+  {
+    parameterName: { type: String, required: true },
+    value: { type: Schema.Types.Mixed, required: true }, // string | number | boolean
+    unit: String,
+    referenceRange: String,
+    isAbnormal: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
+const LabTestResultSchema = new Schema<ILabTestResult>(
+  {
+    catalogId: { type: Schema.Types.ObjectId, ref: "LabCatalog", required: true },
+    testName: { type: String, required: true },
+    testCode: String,
+    parameterResults: { type: [LabTestParameterResultSchema], default: [] },
+    notes: String,
+  },
+  { _id: false }
+);
 
 const LabTestSchema = new Schema<ILabTest>(
   {
@@ -157,7 +212,7 @@ const LabTestSchema = new Schema<ILabTest>(
     appointment: { type: Schema.Types.ObjectId, ref: "Appointment" },
     tests: [
       {
-        catalogId: { type: Schema.Types.ObjectId, ref: "LabCatalog", required: true },  // ← ADD THIS
+        catalogId: { type: Schema.Types.ObjectId, ref: "LabCatalog", required: true },
         testName: { type: String, required: true },
         testCode: String,
         category: { type: String, required: true },
@@ -175,16 +230,7 @@ const LabTestSchema = new Schema<ILabTest>(
     processedBy: { type: Schema.Types.ObjectId, ref: "User" },
     completedAt: Date,
     approvedBy: { type: Schema.Types.ObjectId, ref: "User" },
-    results: [
-      {
-        testName: { type: String, required: true },
-        value: { type: String, required: true },
-        unit: String,
-        referenceRange: String,
-        isAbnormal: { type: Boolean, default: false },
-        notes: String,
-      },
-    ],
+    results: { type: [LabTestResultSchema], default: [] }, // ✅ was flat testName/value array
     reportUrl: String,
     notes: String,
     priority: { type: String, enum: ["routine", "urgent", "stat"], default: "routine" },

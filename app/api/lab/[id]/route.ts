@@ -6,6 +6,7 @@ import { LabCatalog, LabTest } from "@/models/operations.model";
 import { apiSuccess, apiError, getIpFromHeaders } from "@/lib/utils";
 import { auditLog, hasPermission } from "@/lib/auth/audit";
 import { NotificationService } from "@/services/notification.service";
+import { updateLabTestResultsSchema } from "@/lib/validations";
 
 interface Params { params: Promise<{ id: string }> }
 
@@ -64,6 +65,52 @@ export async function PUT(req: NextRequest, { params }: Params) {
     update.totalCost = newTests.reduce((sum, t) => sum + t.cost, 0);
   }
 
+  // ✅ Results — validated + isAbnormal auto-computed from catalog min/max
+  if (body.results) {
+    const parsedResults = updateLabTestResultsSchema.safeParse({
+      results: body.results,
+      reportUrl: body.reportUrl,
+      notes: body.notes,
+    });
+    if (!parsedResults.success) return apiError(parsedResults.error.issues[0].message, 422);
+
+    // Fetch catalog parameter definitions for auto abnormal-flagging
+    const catalogIds = parsedResults.data.results.map(r => r.catalogId);
+    const catalogDocs = await LabCatalog.find({ _id: { $in: catalogIds } }).lean();
+    const catalogMap = new Map(catalogDocs.map(c => [c._id.toString(), c]));
+
+    const enrichedResults = parsedResults.data.results.map(r => {
+      const catalog = catalogMap.get(r.catalogId);
+      const paramDefs = new Map((catalog?.parameters || []).map((p: any) => [p.name, p]));
+
+      const parameterResults = r.parameterResults.map(pr => {
+        const def = paramDefs.get(pr.parameterName);
+        let isAbnormal = pr.isAbnormal ?? false;
+
+        // Auto-compute only for numeric params with defined min/max, and only if caller didn't explicitly set it
+        if (def?.dataType === "number" && (def.minValue !== undefined || def.maxValue !== undefined) && pr.isAbnormal === undefined) {
+          const numValue = Number(pr.value);
+          if (!Number.isNaN(numValue)) {
+            isAbnormal =
+              (def.minValue !== undefined && numValue < def.minValue) ||
+              (def.maxValue !== undefined && numValue > def.maxValue);
+          }
+        }
+
+        return {
+          ...pr,
+          unit: pr.unit ?? def?.unit,
+          referenceRange: pr.referenceRange ?? def?.referenceRange,
+          isAbnormal,
+        };
+      });
+
+      return { ...r, parameterResults };
+    });
+
+    update.results = enrichedResults;
+  }
+
   // Status
   if (body.status) {
     update.status = body.status;
@@ -74,14 +121,12 @@ export async function PUT(req: NextRequest, { params }: Params) {
     if (body.status === "processing") update.processedBy = session.user.id;
     if (body.status === "completed") {
       update.completedAt = new Date();
-      if (body.results) update.results = body.results;
       if (hasPermission(session.user.permissions, session.user.isSuperAdmin, "lab", "approve")) {
         update.approvedBy = session.user.id;
       }
     }
   }
 
-  if (body.results && !body.status) update.results = body.results;
   if (body.reportUrl !== undefined) update.reportUrl = body.reportUrl;
   if (body.notes !== undefined) update.notes = body.notes;
   if (body.priority) update.priority = body.priority;
@@ -93,10 +138,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
     update.invoiceId = body.invoiceId;
   }
 
-  const test = await LabTest.findByIdAndUpdate(id, update, { new: true })
+  const test = await LabTest.findByIdAndUpdate(id, update, { new: true, runValidators: true })
     .populate("patient", "firstName lastName patientId")
     .populate("requestedBy", "firstName lastName")
-    .populate("invoiceId", "invoiceNumber")  // ✅ Populate invoiceId
+    .populate("invoiceId", "invoiceNumber")
     .lean();
 
   if (!test) return apiError("Lab test not found", 404);

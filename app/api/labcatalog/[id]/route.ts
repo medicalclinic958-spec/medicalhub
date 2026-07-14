@@ -50,9 +50,22 @@ export async function PUT(req: NextRequest, { params }: Params) {
         if (duplicate) return apiError("Test code already exists", 409);
     }
 
+    // ✅ If parameters are being updated, check for duplicate parameter names
+    if (parsed.data.parameters !== undefined) {
+        const paramNames = parsed.data.parameters.map(p => p.name.trim().toLowerCase());
+        if (new Set(paramNames).size !== paramNames.length) {
+            return apiError("Duplicate parameter names are not allowed", 422);
+        }
+    }
+
     const updateData: Record<string, unknown> = { ...parsed.data };
     if (parsed.data.testCode) {
         updateData.testCode = parsed.data.testCode.toUpperCase();
+    }
+
+    // ✅ Ensure parameters is handled properly (array now, not object)
+    if (parsed.data.parameters !== undefined) {
+        updateData.parameters = parsed.data.parameters;
     }
 
     const test = await LabCatalog.findByIdAndUpdate(id, updateData, {
@@ -98,7 +111,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     // Check if test is used in any existing lab orders
     const { LabTest } = await import("@/models/operations.model");
     const inUse = await LabTest.findOne({
-        "tests.testCode": test.testCode,
+        "tests.catalogId": id,
         status: { $nin: ["completed", "delivered", "cancelled"] },
     });
 

@@ -52,12 +52,12 @@ export function LabTestsTab({ test, canUpdate, id }: LabTestsTabProps) {
     const catalogTests: LabCatalogItem[] = catalogData?.data || [];
 
     const { register, handleSubmit, formState: { errors } } = useForm({
-        defaultValues: { 
-            status: test.status, 
-            priority: test.priority, 
-            reportUrl: test.reportUrl || "", 
-            notes: test.notes || "", 
-            isPaid: test.isPaid ? "true" : "false" 
+        defaultValues: {
+            status: test.status,
+            priority: test.priority,
+            reportUrl: test.reportUrl || "",
+            notes: test.notes || "",
+            isPaid: test.isPaid ? "true" : "false"
         },
     });
 
@@ -70,14 +70,14 @@ export function LabTestsTab({ test, canUpdate, id }: LabTestsTabProps) {
         },
         onError: (e: unknown) => {
             const msg = (e as any)?.response?.data?.error || "Failed";
-            setUpdateError(msg); 
+            setUpdateError(msg);
             toast.error(msg);
         },
     });
 
     const onSubmit = (formData: Record<string, unknown>) => {
         const payload: Record<string, unknown> = {};
-        
+
         if (formData.status === "delivered" && !test.isPaid) {
             const msg = "Cannot deliver order - payment is pending";
             setUpdateError(msg);
@@ -91,17 +91,20 @@ export function LabTestsTab({ test, canUpdate, id }: LabTestsTabProps) {
         if (formData.notes !== (test.notes || "")) payload.notes = formData.notes || "";
         // const isPaidBool = formData.isPaid === "true";
         // if (isPaidBool !== test.isPaid) payload.isPaid = isPaidBool;
-        
-        if (Object.keys(payload).length === 0) { 
-            setUpdateError("No changes made"); 
+
+        if (Object.keys(payload).length === 0) {
+            setUpdateError("No changes made");
             toast.warning("No changes made");
-            return; 
+            return;
         }
         updateMutation.mutate(payload);
     };
 
     const openEditTests = () => {
-        setSelectedTests(test.tests.map(t => t.catalogId || "").filter(Boolean));
+        const ids = test.tests
+            .map(t => typeof t.catalogId === "object" && t.catalogId ? t.catalogId._id : (t.catalogId || ""))
+            .filter(Boolean) as string[];
+        setSelectedTests(ids);
         setEditTestsOpen(true);
     };
 
@@ -196,23 +199,23 @@ export function LabTestsTab({ test, canUpdate, id }: LabTestsTabProps) {
                                         const isCompleted = i < currentStep;
                                         const isCurrent = i === currentStep;
                                         const isDisabled = step.key === "delivered" && !test.isPaid;
-                                        
+
                                         return (
                                             <div key={step.key} className="flex items-center flex-1">
                                                 <div className="flex flex-col items-center">
                                                     <div className={cn(
                                                         "w-8 h-8 rounded-full flex items-center justify-center",
-                                                        isCompleted ? "bg-teal-100 text-teal-600" : 
-                                                        isCurrent ? "bg-teal-600 text-white" : 
-                                                        isDisabled ? "bg-gray-200 text-gray-400" : 
-                                                        "bg-gray-100 text-gray-400"
+                                                        isCompleted ? "bg-teal-100 text-teal-600" :
+                                                            isCurrent ? "bg-teal-600 text-white" :
+                                                                isDisabled ? "bg-gray-200 text-gray-400" :
+                                                                    "bg-gray-100 text-gray-400"
                                                     )}>
                                                         <Icon className="w-4 h-4" />
                                                     </div>
                                                     <span className={cn(
                                                         "text-[10px] mt-1 whitespace-nowrap",
-                                                        isCurrent ? "font-medium text-gray-700" : 
-                                                        isDisabled ? "text-gray-400" : "text-gray-400"
+                                                        isCurrent ? "font-medium text-gray-700" :
+                                                            isDisabled ? "text-gray-400" : "text-gray-400"
                                                     )}>
                                                         {step.label}
                                                         {isDisabled && " (Pay first)"}
@@ -255,7 +258,7 @@ export function LabTestsTab({ test, canUpdate, id }: LabTestsTabProps) {
                         <CardBody>
                             <div className="flex items-center justify-between mb-3">
                                 <h3 className="text-xs font-semibold text-gray-900">Tests ({test.tests?.length})</h3>
-                                {canUpdate && test.status === "pending" && (
+                                {canUpdate && !test.isPaid && test.status === "pending" && (
                                     <Button size="sm" variant="secondary" onClick={openEditTests}>
                                         <Pencil className="w-3.5 h-3.5" /> Edit Tests
                                     </Button>
@@ -386,9 +389,9 @@ export function LabTestsTab({ test, canUpdate, id }: LabTestsTabProps) {
                 <div className="space-y-4 mt-2">
                     <div className="max-h-80 overflow-y-auto border border-gray-300 rounded-lg divide-y divide-gray-100">
                         {catalogTests.map(ct => (
-                            <div 
-                                key={ct._id} 
-                                onClick={() => toggleTest(ct._id)} 
+                            <div
+                                key={ct._id}
+                                onClick={() => toggleTest(ct._id)}
                                 className={cn(
                                     "flex items-center justify-between px-3 py-2.5 cursor-pointer",
                                     selectedTests.includes(ct._id) ? "bg-teal-50" : ""
@@ -428,10 +431,10 @@ export function LabTestsTab({ test, canUpdate, id }: LabTestsTabProps) {
             </Modal>
 
             {/* Pay Confirmation Modal */}
-            <Modal 
-                open={payModalOpen} 
-                onClose={() => setPayModalOpen(false)} 
-                title="Confirm Payment" 
+            <Modal
+                open={payModalOpen}
+                onClose={() => setPayModalOpen(false)}
+                title="Confirm Payment"
                 size="sm"
             >
                 <div className="space-y-4 mt-2">
@@ -448,8 +451,8 @@ export function LabTestsTab({ test, canUpdate, id }: LabTestsTabProps) {
                         <Button variant="secondary" onClick={() => setPayModalOpen(false)}>
                             Cancel
                         </Button>
-                        <Button 
-                            onClick={handlePayConfirm} 
+                        <Button
+                            onClick={handlePayConfirm}
                             loading={invoiceMutation.isPending}
                             className="bg-teal-600 hover:bg-teal-700 text-white"
                         >

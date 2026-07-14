@@ -16,6 +16,22 @@ import { LabTestsTab } from "./lab-tests-tab";
 import { LabResultsTab } from "./lab-results-tab";
 import { LabReportTab } from "./lab-report-tab";
 
+interface LabTestParameterResult {
+    parameterName: string;
+    value: string | number | boolean;
+    unit?: string;
+    referenceRange?: string;
+    isAbnormal?: boolean;
+}
+
+interface LabTestResult {
+    catalogId: string;
+    testName: string;
+    testCode?: string;
+    parameterResults: LabTestParameterResult[];
+    notes?: string;
+}
+
 interface LabTestDetail {
     _id: string;
     labTestId: string;
@@ -31,7 +47,7 @@ interface LabTestDetail {
     processedBy?: { firstName: string; lastName: string };
     completedAt?: string;
     approvedBy?: { firstName: string; lastName: string };
-    results: { testName: string; value: string; unit?: string; referenceRange?: string; isAbnormal?: boolean; notes?: string }[];
+    results: LabTestResult[]; // ✅ was flat array, now nested per test/parameter
     reportUrl?: string;
     notes?: string;
     createdAt: string;

@@ -61,9 +61,16 @@ export async function POST(req: NextRequest) {
     const existing = await LabCatalog.findOne({ testCode: parsed.data.testCode.toUpperCase() });
     if (existing) return apiError("Test code already exists", 409);
 
+    // Check for duplicate parameter names within the same test
+    const paramNames = (parsed.data.parameters || []).map(p => p.name.trim().toLowerCase());
+    if (new Set(paramNames).size !== paramNames.length) {
+        return apiError("Duplicate parameter names are not allowed", 422);
+    }
+
     const test = await LabCatalog.create({
         ...parsed.data,
         testCode: parsed.data.testCode.toUpperCase(),
+        parameters: parsed.data.parameters || [], // ✅ array default, was {}
     });
 
     await auditLog({
