@@ -10,6 +10,7 @@ import { Eye, EyeOff, Loader2, Stethoscope, ChevronRight, Hospital } from "lucid
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import Image from "next/image";
+import { NEXT_PUBLIC_CLINIC_NAME, NEXT_PUBLIC_CLINIC_TAGLINE, NEXT_PUBLIC_LOGO_URL } from "@/constants/ClinicDetails";
 
 
 const rotatingTexts = [
@@ -107,12 +108,15 @@ export function LoginForm() {
           {/* Logo */}
           <div className="mb-12">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-14 h-14 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center">
-                <Hospital className="w-8 h-8 text-white" />
+              <div className="w-14 h-14 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center overflow-hidden">
+                {NEXT_PUBLIC_LOGO_URL ? (
+                  <img src={NEXT_PUBLIC_LOGO_URL} alt="Logo" className="w-full h-full object-cover" />
+                ) : (
+                  <Hospital className="w-8 h-8 text-white" />
+                )}
               </div>
               <div>
-                <h2 className="text-2xl font-bold tracking-tight">ClinicHMS</h2>
-                {/* <p className="text-teal-200 text-sm">Hospital Management System</p> */}
+                <h2 className="text-2xl font-bold tracking-tight">{NEXT_PUBLIC_CLINIC_NAME || 'ClinicHMS'}</h2>
               </div>
             </div>
           </div>
@@ -174,8 +178,8 @@ export function LoginForm() {
             <div className="w-14 h-14 bg-teal-600 rounded-2xl flex items-center justify-center mb-4">
               <Stethoscope className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-teal-800">ClinicHMS</h1>
-            <p className="text-gray-500 text-sm mt-1">Hospital Management System</p>
+            <h1 className="text-2xl font-bold text-teal-800"></h1>
+            <p className="text-gray-500 text-sm mt-1">{NEXT_PUBLIC_CLINIC_TAGLINE || 'Hospital Management System'}</p>
           </div>
 
           {/* Form Header */}
@@ -297,7 +301,7 @@ export function LoginForm() {
 
           {/* Footer */}
           <p className="text-center text-gray-400 text-xs mt-6">
-            &copy; {new Date().getFullYear()} ClinicHMS. All rights reserved.
+            &copy; {new Date().getFullYear()} {NEXT_PUBLIC_CLINIC_NAME || 'ClinicHMS'}. All rights reserved.
           </p>
         </div>
       </div>

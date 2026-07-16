@@ -1,14 +1,14 @@
 // components/opd/emr-detail-client.tsx
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray } from "react-hook-form";
 import {
-    ArrowLeft, FileText, Edit2, Trash2, Plus, Printer,
+    ArrowLeft, FileText, Edit2, Trash2, Plus, Printer, Download,
     Stethoscope, Heart, Clock, Pill,
 } from "lucide-react";
 import {
@@ -18,11 +18,8 @@ import {
 import { formatDate, cn } from "@/lib/utils";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-
-const CLINIC_NAME = "ClinicHMS";
-const CLINIC_TAGLINE = "Hospital Management System";
-const CLINIC_ADDRESS = "123 Healthcare Avenue, Medical District";
-const CLINIC_PHONE = "+92 300 1234567";
+import { generateEMRPrintHtml, EMRPdfTemplate } from "../printTemplates/emr-templates";
+import { pdf } from "@react-pdf/renderer";
 
 interface EMRRecord {
     _id: string;
@@ -55,6 +52,7 @@ export function EMRDetailClient({ emrId }: { emrId: string }) {
     const [activeTab, setActiveTab] = useState<"emr" | "rx">("emr");
     const [error, setError] = useState("");
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [isPdfLoading, setIsPdfLoading] = useState(false);
 
     const isSA = session?.user.isSuperAdmin;
     const perms = session?.user.permissions || [];
@@ -84,54 +82,34 @@ export function EMRDetailClient({ emrId }: { emrId: string }) {
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ["emr", emrId] });
             qc.invalidateQueries({ queryKey: ["emr-records"] });
-            setEditOpen(false);
-            setError("");
+            setEditOpen(false); setError("");
             toast.success("EMR record updated successfully!");
         },
-        onError: (e: any) => {
-            const msg = e?.response?.data?.error || "Failed to update";
-            setError(msg);
-            toast.error(msg);
-        },
+        onError: (e: any) => { const msg = e?.response?.data?.error || "Failed to update"; setError(msg); toast.error(msg); },
     });
 
     const deleteMutation = useMutation({
         mutationFn: () => axios.delete(`/api/emr/${emrId}`),
-        onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ["emr-records"] });
-            toast.success("EMR record deleted!");
-            router.push("/opd");
-        },
-        onError: (e: any) => {
-            const msg = e?.response?.data?.error || "Failed to delete";
-            setError(msg);
-            toast.error(msg);
-        },
+        onSuccess: () => { qc.invalidateQueries({ queryKey: ["emr-records"] }); toast.success("EMR record deleted!"); router.push("/opd"); },
+        onError: (e: any) => { const msg = e?.response?.data?.error || "Failed to delete"; setError(msg); toast.error(msg); },
     });
 
     const openEditModal = () => {
         if (data?.data) {
             const d = data.data;
             let allMedicines: any[] = [];
-            if (d.prescriptions?.length > 0) {
-                d.prescriptions.forEach((rx: any) => {
-                    if (rx.medicines?.length > 0) {
-                        allMedicines = allMedicines.concat(rx.medicines.map((m: any) => ({
-                            medicine: m.medicineName || "", strength: m.strength || "", dosage: m.dosage || "",
-                            frequency: m.frequency || "", duration: m.duration || "", route: m.route || "oral",
-                            instructions: m.instructions || "", quantity: m.quantity || 0,
-                        })));
-                    }
-                });
-            }
+            d.prescriptions?.forEach((rx: any) => {
+                if (rx.medicines?.length > 0) {
+                    allMedicines = allMedicines.concat(rx.medicines.map((m: any) => ({
+                        medicine: m.medicineName || "", strength: m.strength || "", dosage: m.dosage || "",
+                        frequency: m.frequency || "", duration: m.duration || "", route: m.route || "oral",
+                        instructions: m.instructions || "", quantity: m.quantity || 0,
+                    })));
+                }
+            });
             reset({
                 chiefComplaint: d.chiefComplaint || "", symptoms: d.symptoms?.length ? d.symptoms : [""],
-                vitals: {
-                    temperature: d.vitals?.temperature || "", bloodPressureSystolic: d.vitals?.bloodPressureSystolic || "",
-                    bloodPressureDiastolic: d.vitals?.bloodPressureDiastolic || "", heartRate: d.vitals?.heartRate || "",
-                    respiratoryRate: d.vitals?.respiratoryRate || "", oxygenSaturation: d.vitals?.oxygenSaturation || "",
-                    weight: d.vitals?.weight || "", height: d.vitals?.height || "", bloodSugar: d.vitals?.bloodSugar || "",
-                },
+                vitals: { temperature: d.vitals?.temperature || "", bloodPressureSystolic: d.vitals?.bloodPressureSystolic || "", bloodPressureDiastolic: d.vitals?.bloodPressureDiastolic || "", heartRate: d.vitals?.heartRate || "", respiratoryRate: d.vitals?.respiratoryRate || "", oxygenSaturation: d.vitals?.oxygenSaturation || "", weight: d.vitals?.weight || "", height: d.vitals?.height || "", bloodSugar: d.vitals?.bloodSugar || "" },
                 diagnosis: d.diagnosis?.length ? d.diagnosis : [{ icdCode: "", description: "", type: "primary" }],
                 treatmentPlan: d.treatmentPlan || "", notes: d.notes || "", followUpDate: d.followUpDate?.split("T")[0] || "",
                 prescriptions: allMedicines.length > 0 ? allMedicines : [{ medicine: "", strength: "", dosage: "", frequency: "", duration: "", route: "oral", instructions: "", quantity: 0 }],
@@ -144,20 +122,12 @@ export function EMRDetailClient({ emrId }: { emrId: string }) {
     };
 
     const onSubmit = (d: any) => {
-        const vitals = Object.fromEntries(
-            Object.entries(d.vitals).map(([k, v]) => [k, v ? parseFloat(v as string) : undefined]).filter(([, v]) => v !== undefined && !isNaN(v as number))
-        );
-        const prescriptions = d.prescriptions.filter((p: any) => p.medicine.trim()).map((p: any) => ({
-            medicine: p.medicine, strength: p.strength || "", dosage: p.dosage, frequency: p.frequency,
-            duration: p.duration || "", route: p.route || "oral", instructions: p.instructions || "", quantity: p.quantity || 0,
-        }));
+        const vitals = Object.fromEntries(Object.entries(d.vitals).map(([k, v]) => [k, v ? parseFloat(v as string) : undefined]).filter(([, v]) => v !== undefined && !isNaN(v as number)));
+        const prescriptions = d.prescriptions.filter((p: any) => p.medicine.trim()).map((p: any) => ({ medicine: p.medicine, strength: p.strength || "", dosage: p.dosage, frequency: p.frequency, duration: p.duration || "", route: p.route || "oral", instructions: p.instructions || "", quantity: p.quantity || 0 }));
         updateMutation.mutate({
-            patient: record.patient?._id, chiefComplaint: d.chiefComplaint,
-            symptoms: d.symptoms.filter((s: string) => s.trim()), vitals,
-            diagnosis: d.diagnosis.filter((diag: any) => diag.description.trim()),
-            treatmentPlan: d.treatmentPlan, notes: d.notes, followUpDate: d.followUpDate,
-            prescriptions, prescriptionNotes: d.prescriptionNotes, prescriptionType: d.prescriptionType,
-            durationValue: d.durationValue, durationUnit: d.durationUnit,
+            patient: record.patient?._id, chiefComplaint: d.chiefComplaint, symptoms: d.symptoms.filter((s: string) => s.trim()), vitals,
+            diagnosis: d.diagnosis.filter((diag: any) => diag.description.trim()), treatmentPlan: d.treatmentPlan, notes: d.notes, followUpDate: d.followUpDate,
+            prescriptions, prescriptionNotes: d.prescriptionNotes, prescriptionType: d.prescriptionType, durationValue: d.durationValue, durationUnit: d.durationUnit,
             allergies: d.allergies ? d.allergies.split(",").map((a: string) => a.trim()).filter(Boolean) : [],
         });
     };
@@ -165,60 +135,29 @@ export function EMRDetailClient({ emrId }: { emrId: string }) {
     const handlePrint = () => {
         const printWindow = window.open("", "_blank");
         if (!printWindow) { toast.error("Please allow pop-ups to print."); return; }
-        const r = record;
-
-        const vitalsHtml = Object.entries(r.vitals || {}).filter(([, v]) => v).map(([k, v]) => {
-            const labels: Record<string, string> = { temperature: "Temp", bloodPressureSystolic: "BP Sys", bloodPressureDiastolic: "BP Dia", heartRate: "HR", respiratoryRate: "RR", oxygenSaturation: "O2", weight: "Wt", height: "Ht", bloodSugar: "BS" };
-            const units: Record<string, string> = { temperature: "°C", heartRate: "bpm", respiratoryRate: "/min", oxygenSaturation: "%", weight: "kg", height: "cm", bloodSugar: "mg/dL" };
-            return `<div class="vital"><span class="vital-label">${labels[k] || k}</span><span class="vital-value">${v} ${units[k] || ""}</span></div>`;
-        }).join("");
-
-        // Flatten all medicines from all prescriptions
-        const allMedicines: any[] = [];
-        r.prescriptions?.forEach((rx: any) => {
-            rx.medicines?.forEach((m: any) => allMedicines.push(m));
-        });
-
-        printWindow.document.write(`<!DOCTYPE html><html><head><title>EMR - ${r.patient?.firstName} ${r.patient?.lastName}</title>
-        <style>
-            *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;font-size:11px;color:#1a1a1a;padding:25px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-            .header{display:flex;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #0d9488}
-            .clinic-name{font-size:18px;font-weight:700;color:#0d9488}.clinic-tagline{font-size:9px;color:#666}.clinic-details{font-size:9px;color:#666;line-height:1.5}
-            .doc-title{font-size:14px;font-weight:700;color:#333;text-align:right}.doc-sub{font-size:9px;color:#666;text-align:right}
-            .section{margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid #e5e5e5}.section-last{margin-bottom:14px;padding-bottom:0;border-bottom:none}
-            .label{font-size:8px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}.value{font-size:10px;color:#333}
-            .grid-2{display:flex;gap:30px}.grid-2>div{flex:1}
-            .vitals-grid{display:flex;flex-wrap:wrap;gap:6px 16px}.vital{min-width:55px}.vital-label{display:block;font-size:7px;color:#888;text-transform:uppercase}.vital-value{display:block;font-size:10px;font-weight:500;color:#333}
-            .badge{display:inline-block;font-size:8px;font-weight:600;padding:1px 6px;border-radius:3px}.badge-primary{background:#dbeafe;color:#1e40af}.badge-secondary{background:#f3f4f6;color:#374151}
-            .diag-row{display:flex;align-items:center;gap:6px;padding:3px 0}
-            .rx-table{width:100%;border-collapse:collapse;margin-top:6px}
-            .rx-table th{text-align:left;font-size:7px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.5px;padding:5px 6px;border-bottom:2px solid #0d9488;background:#f0fdfa}
-            .rx-table td{font-size:9px;color:#333;padding:5px 6px;border-bottom:1px solid #f0f0f0;vertical-align:top}
-            .rx-table td:first-child{font-weight:600;color:#0d9488}
-            .rx-table tr:last-child td{border-bottom:none}
-            .footer{margin-top:20px;padding-top:8px;border-top:1px solid #e5e5e5;text-align:center;font-size:8px;color:#aaa}
-            @media print{body{padding:15px}@page{margin:12mm}}
-        </style></head><body>
-        <div class="header"><div><div class="clinic-name">${CLINIC_NAME}</div><div class="clinic-tagline">${CLINIC_TAGLINE}</div><div class="clinic-details">${CLINIC_ADDRESS}<br/>${CLINIC_PHONE}</div></div><div><div class="doc-title">MEDICAL RECORD</div><div class="doc-sub">Visit: ${formatDate(r.visitDate)}</div>${r.followUpDate ? `<div class="doc-sub">Follow-up: ${formatDate(r.followUpDate)}</div>` : ""}</div></div>
-        <div class="section"><div class="grid-2"><div><div class="label">Patient</div><div class="value">${r.patient?.firstName} ${r.patient?.lastName}</div><div style="font-size:9px;color:#666;">${r.patient?.patientId}</div><div style="font-size:9px;color:#666;">${r.patient?.phone}</div></div><div><div class="label">Doctor</div><div class="value">Dr. ${r.doctor?.user?.firstName} ${r.doctor?.user?.lastName}</div><div style="font-size:9px;color:#666;">${r.doctor?.user?.email}</div></div></div></div>
-        <div class="section"><div class="label">Chief Complaint</div><div class="value">${r.chiefComplaint}</div>${r.symptoms?.length > 0 ? `<div style="margin-top:6px;"><div class="label">Symptoms</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:2px;">${r.symptoms.map((s: string) => `<span class="badge badge-secondary">${s}</span>`).join("")}</div></div>` : ""}</div>
-        ${vitalsHtml ? `<div class="section"><div class="label">Vitals</div><div class="vitals-grid">${vitalsHtml}</div></div>` : ""}
-        ${r.diagnosis?.length > 0 ? `<div class="section"><div class="label">Diagnosis</div>${r.diagnosis.map((d: any) => `<div class="diag-row"><span class="badge ${d.type==='primary'?'badge-primary':'badge-secondary'}">${d.type}</span><span style="font-size:10px;color:#333;">${d.description}</span>${d.icdCode?`<span style="font-size:9px;color:#888;">ICD: ${d.icdCode}</span>`:""}</div>`).join("")}</div>` : ""}
-        ${r.treatmentPlan ? `<div class="section"><div class="label">Treatment Plan</div><div class="value" style="white-space:pre-wrap;">${r.treatmentPlan}</div></div>` : ""}
-        ${allMedicines.length > 0 ? `<div class="section"><div class="label">Prescriptions</div><table class="rx-table"><thead><tr><th>Medicine</th><th>Strength</th><th>Dosage</th><th>Frequency</th><th>Duration</th><th>Route</th><th>Qty</th><th>Instructions</th></tr></thead><tbody>${allMedicines.map((m: any) => `<tr><td>${m.medicineName || "—"}</td><td>${m.strength || "—"}</td><td>${m.dosage || "—"}</td><td>${m.frequency || "—"}</td><td>${m.duration || "—"}</td><td>${m.route || "—"}</td><td>${m.quantity || "—"}</td><td>${m.instructions || "—"}</td></tr>`).join("")}</tbody></table></div>` : ""}
-        ${r.notes ? `<div class="section-last"><div class="label">Notes</div><div class="value" style="white-space:pre-wrap;">${r.notes}</div></div>` : ""}
-        <div class="footer">Computer-generated medical record • ${CLINIC_NAME} • ${formatDate(r.createdAt)}</div>
-        </body></html>`);
+        printWindow.document.write(generateEMRPrintHtml(record, "/logo.png"));
         printWindow.document.close();
         printWindow.focus();
         setTimeout(() => { printWindow.print(); printWindow.close(); }, 400);
     };
 
+    const handleDownloadPdf = async () => {
+        setIsPdfLoading(true);
+        try {
+            const blob = await pdf(<EMRPdfTemplate record={record} logoUrl="/logo.png" />).toBlob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `EMR_${record.patient?.firstName}_${record.patient?.lastName}.pdf`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            toast.success("PDF downloaded!");
+        } catch { toast.error("Failed to generate PDF"); }
+        finally { setIsPdfLoading(false); }
+    };
+
     if (isLoading) return (
-        <div className="space-y-4">
-            <Skeleton className="h-8 w-48 rounded-lg" />
-            <Skeleton className="h-64 w-full rounded-lg" />
-        </div>
+        <div className="space-y-4"><Skeleton className="h-8 w-48 rounded-lg" /><Skeleton className="h-64 w-full rounded-lg" /></div>
     );
 
     if (queryError || !data?.data) return (
@@ -241,6 +180,7 @@ export function EMRDetailClient({ emrId }: { emrId: string }) {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                     <Button variant="secondary" size="sm" onClick={handlePrint}><Printer className="w-3.5 h-3.5" /> Print</Button>
+                    <Button variant="secondary" size="sm" onClick={handleDownloadPdf} loading={isPdfLoading}><Download className="w-3.5 h-3.5" /> PDF</Button>
                     {canUpdate && <Button variant="secondary" size="sm" onClick={openEditModal}><Edit2 className="w-3.5 h-3.5" /> Edit</Button>}
                     {canDelete && <Button variant="danger" size="sm" onClick={() => setDeleteConfirmOpen(true)}><Trash2 className="w-3.5 h-3.5" /> Delete</Button>}
                 </div>
@@ -248,33 +188,15 @@ export function EMRDetailClient({ emrId }: { emrId: string }) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Card><CardBody><div className="space-y-2.5"><Row label="Patient"><Link href={`/patients/${record.patient?._id}`} className="text-teal-600 font-medium">{record.patient?.firstName} {record.patient?.lastName}</Link></Row><Row label="Patient ID" value={record.patient?.patientId} /><Row label="Phone" value={record.patient?.phone} /><Row label="Doctor">Dr. {record.doctor?.user?.firstName} {record.doctor?.user?.lastName}</Row><Row label="Visit Date" value={formatDate(record.visitDate)} />{record.followUpDate && <Row label="Follow-up" value={formatDate(record.followUpDate)} />}</div></CardBody></Card>
-
                 <Card><CardBody><div className="flex items-center gap-2 mb-4"><div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center"><FileText className="w-4 h-4 text-teal-600" /></div><h3 className="text-xs font-semibold text-gray-900">Chief Complaint</h3></div><p className="text-xs text-gray-600 mb-3">{record.chiefComplaint}</p>{record.symptoms?.length > 0 && <div><p className="text-xs text-gray-400 mb-1.5">Symptoms</p><div className="flex flex-wrap gap-1">{record.symptoms.map((s, i) => <Badge key={i} variant="outline">{s}</Badge>)}</div></div>}</CardBody></Card>
-
-                {Object.values(record.vitals || {}).some(v => v) && (
-                    <Card className="sm:col-span-2"><CardBody><div className="flex items-center gap-2 mb-4"><div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center"><Heart className="w-4 h-4 text-red-500" /></div><h3 className="text-xs font-semibold text-gray-900">Vitals</h3></div><div className="grid grid-cols-3 sm:grid-cols-5 gap-3">{record.vitals?.temperature && <Vital label="Temperature" value={`${record.vitals.temperature} °C`} />}{(record.vitals?.bloodPressureSystolic || record.vitals?.bloodPressureDiastolic) && <Vital label="Blood Pressure" value={`${record.vitals.bloodPressureSystolic}/${record.vitals.bloodPressureDiastolic} mmHg`} />}{record.vitals?.heartRate && <Vital label="Heart Rate" value={`${record.vitals.heartRate} bpm`} />}{record.vitals?.respiratoryRate && <Vital label="Resp Rate" value={`${record.vitals.respiratoryRate} /min`} />}{record.vitals?.oxygenSaturation && <Vital label="O2 Sat" value={`${record.vitals.oxygenSaturation}%`} />}{record.vitals?.weight && <Vital label="Weight" value={`${record.vitals.weight} kg`} />}{record.vitals?.height && <Vital label="Height" value={`${record.vitals.height} cm`} />}{record.vitals?.bloodSugar && <Vital label="Blood Sugar" value={`${record.vitals.bloodSugar} mg/dL`} />}</div></CardBody></Card>
-                )}
-
-                {record.diagnosis?.length > 0 && (
-                    <Card className="sm:col-span-2"><CardBody><div className="flex items-center gap-2 mb-4"><div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center"><Stethoscope className="w-4 h-4 text-teal-600" /></div><h3 className="text-xs font-semibold text-gray-900">Diagnosis</h3></div><div className="space-y-1.5">{record.diagnosis.map((d, i) => <div key={i} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200"><Badge variant={d.type === "primary" ? "info" : "outline"}>{d.type}</Badge><span className="text-xs text-gray-700">{d.description}</span>{d.icdCode && <span className="text-xs text-gray-400">ICD: {d.icdCode}</span>}</div>)}</div></CardBody></Card>
-                )}
-
-                {record.treatmentPlan && (
-                    <Card className="sm:col-span-2"><CardBody><div className="flex items-center gap-2 mb-4"><div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center"><FileText className="w-4 h-4 text-gray-400" /></div><h3 className="text-xs font-semibold text-gray-900">Treatment Plan</h3></div><p className="text-xs text-gray-600 whitespace-pre-wrap">{record.treatmentPlan}</p></CardBody></Card>
-                )}
-
-                {allMedicines.length > 0 && (
-                    <Card className="sm:col-span-2"><CardBody><div className="flex items-center gap-2 mb-4"><div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center"><Pill className="w-4 h-4 text-teal-600" /></div><h3 className="text-xs font-semibold text-gray-900">Prescriptions</h3></div><div className="overflow-x-auto"><Table><thead><tr><Th>Medicine</Th><Th>Strength</Th><Th>Dosage</Th><Th>Frequency</Th><Th>Duration</Th><Th>Route</Th><Th>Qty</Th><Th>Instructions</Th></tr></thead><tbody>{allMedicines.map((m: any, i: number) => <tr key={i}><Td className="font-medium text-gray-900">{m.medicineName || "—"}</Td><Td>{m.strength || "—"}</Td><Td>{m.dosage || "—"}</Td><Td>{m.frequency || "—"}</Td><Td>{m.duration || "—"}</Td><Td className="capitalize">{m.route || "—"}</Td><Td>{m.quantity || "—"}</Td><Td className="max-w-[150px] truncate">{m.instructions || "—"}</Td></tr>)}</tbody></Table></div></CardBody></Card>
-                )}
-
-                {record.notes && (
-                    <Card className="sm:col-span-2"><CardBody><div className="flex items-center gap-2 mb-4"><div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center"><FileText className="w-4 h-4 text-gray-400" /></div><h3 className="text-xs font-semibold text-gray-900">Notes</h3></div><p className="text-xs text-gray-600 whitespace-pre-wrap">{record.notes}</p></CardBody></Card>
-                )}
-
+                {Object.values(record.vitals || {}).some(v => v) && (<Card className="sm:col-span-2"><CardBody><div className="flex items-center gap-2 mb-4"><div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center"><Heart className="w-4 h-4 text-red-500" /></div><h3 className="text-xs font-semibold text-gray-900">Vitals</h3></div><div className="grid grid-cols-3 sm:grid-cols-5 gap-3">{record.vitals?.temperature && <Vital label="Temperature" value={`${record.vitals.temperature} °C`} />}{(record.vitals?.bloodPressureSystolic || record.vitals?.bloodPressureDiastolic) && <Vital label="Blood Pressure" value={`${record.vitals.bloodPressureSystolic}/${record.vitals.bloodPressureDiastolic} mmHg`} />}{record.vitals?.heartRate && <Vital label="Heart Rate" value={`${record.vitals.heartRate} bpm`} />}{record.vitals?.respiratoryRate && <Vital label="Resp Rate" value={`${record.vitals.respiratoryRate} /min`} />}{record.vitals?.oxygenSaturation && <Vital label="O2 Sat" value={`${record.vitals.oxygenSaturation}%`} />}{record.vitals?.weight && <Vital label="Weight" value={`${record.vitals.weight} kg`} />}{record.vitals?.height && <Vital label="Height" value={`${record.vitals.height} cm`} />}{record.vitals?.bloodSugar && <Vital label="Blood Sugar" value={`${record.vitals.bloodSugar} mg/dL`} />}</div></CardBody></Card>)}
+                {record.diagnosis?.length > 0 && (<Card className="sm:col-span-2"><CardBody><div className="flex items-center gap-2 mb-4"><div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center"><Stethoscope className="w-4 h-4 text-teal-600" /></div><h3 className="text-xs font-semibold text-gray-900">Diagnosis</h3></div><div className="space-y-1.5">{record.diagnosis.map((d, i) => <div key={i} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200"><Badge variant={d.type === "primary" ? "info" : "outline"}>{d.type}</Badge><span className="text-xs text-gray-700">{d.description}</span>{d.icdCode && <span className="text-xs text-gray-400">ICD: {d.icdCode}</span>}</div>)}</div></CardBody></Card>)}
+                {record.treatmentPlan && (<Card className="sm:col-span-2"><CardBody><div className="flex items-center gap-2 mb-4"><div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center"><FileText className="w-4 h-4 text-gray-400" /></div><h3 className="text-xs font-semibold text-gray-900">Treatment Plan</h3></div><p className="text-xs text-gray-600 whitespace-pre-wrap">{record.treatmentPlan}</p></CardBody></Card>)}
+                {allMedicines.length > 0 && (<Card className="sm:col-span-2"><CardBody><div className="flex items-center gap-2 mb-4"><div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center"><Pill className="w-4 h-4 text-teal-600" /></div><h3 className="text-xs font-semibold text-gray-900">Prescriptions</h3></div><div className="overflow-x-auto"><Table><thead><tr><Th>Medicine</Th><Th>Strength</Th><Th>Dosage</Th><Th>Frequency</Th><Th>Duration</Th><Th>Route</Th><Th>Qty</Th><Th>Instructions</Th></tr></thead><tbody>{allMedicines.map((m: any, i: number) => <tr key={i}><Td className="font-medium text-gray-900">{m.medicineName || "—"}</Td><Td>{m.strength || "—"}</Td><Td>{m.dosage || "—"}</Td><Td>{m.frequency || "—"}</Td><Td>{m.duration || "—"}</Td><Td className="capitalize">{m.route || "—"}</Td><Td>{m.quantity || "—"}</Td><Td className="max-w-[150px] ">{m.instructions || "—"}</Td></tr>)}</tbody></Table></div></CardBody></Card>)}
+                {record.notes && (<Card className="sm:col-span-2"><CardBody><div className="flex items-center gap-2 mb-4"><div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center"><FileText className="w-4 h-4 text-gray-400" /></div><h3 className="text-xs font-semibold text-gray-900">Notes</h3></div><p className="text-xs text-gray-600 whitespace-pre-wrap">{record.notes}</p></CardBody></Card>)}
                 <Card className="sm:col-span-2"><CardBody><div className="flex items-center gap-2 mb-4"><div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center"><Clock className="w-4 h-4 text-gray-400" /></div><h3 className="text-xs font-semibold text-gray-900">Record Information</h3></div><div className="flex gap-6 sm:gap-10"><div><p className="text-xs text-gray-400">Created</p><p className="text-xs text-gray-700 mt-0.5">{formatDate(record.createdAt)}</p></div><div><p className="text-xs text-gray-400">Last Updated</p><p className="text-xs text-gray-700 mt-0.5">{formatDate(record.updatedAt)}</p></div></div></CardBody></Card>
             </div>
 
-            {/* Edit Modal — unchanged from previous, keeping same */}
             <Modal open={editOpen} onClose={() => { setEditOpen(false); setError(""); }} title="Edit EMR Record" size="xl">
                 {error && <Alert type="error">{error}</Alert>}
                 <div className="flex gap-2 border-b border-gray-200 mb-4">
@@ -309,7 +231,7 @@ export function EMRDetailClient({ emrId }: { emrId: string }) {
 }
 
 function Row({ label, value, children }: { label: string; value?: string; children?: React.ReactNode }) {
-    return <div className="flex items-center justify-between gap-3"><span className="text-xs text-gray-400 shrink-0">{label}</span>{children ? <span className="text-xs text-right">{children}</span> : <span className="text-xs text-gray-700 text-right truncate">{value}</span>}</div>;
+    return <div className="flex items-center justify-between gap-3"><span className="text-xs text-gray-400 shrink-0">{label}</span>{children ? <span className="text-xs text-right">{children}</span> : <span className="text-xs text-gray-700 text-right">{value}</span>}</div>;
 }
 
 function Vital({ label, value }: { label: string; value: string }) {

@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth/auth.config";
 import { apiSuccess, apiError } from "@/lib/utils";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { NEXT_PUBLIC_CLINIC_NAME } from "@/constants/ClinicDetails";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
         // Build dynamic system prompt from session
         const userName = session.user.fullName || session.user.name || "User";
         const userRole = session.user.role || "Staff";
-        const systemPrompt = `You are a helpful AI assistant in a clinic management system (ClinicHMS).
+        const systemPrompt = `You are a helpful AI assistant in a clinic or hospital management system ${NEXT_PUBLIC_CLINIC_NAME || 'ClinicHms'}.
 
 Current User Information:
 - Name: ${userName}

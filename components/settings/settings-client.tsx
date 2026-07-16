@@ -14,14 +14,14 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const TABS = [
-  { id: "clinic", label: "Clinic Info", icon: Building2 },
+  // { id: "clinic", label: "Clinic Info", icon: Building2 },
   { id: "departments", label: "Departments", icon: Settings },
 ];
 
 export function SettingsClient() {
   const { data: session } = useSession();
   const qc = useQueryClient();
-  const [tab, setTab] = useState("clinic");
+  const [tab, setTab] = useState("departments");
   const [saveError, setSaveError] = useState("");
   const [newDept, setNewDept] = useState({ name: "", code: "", description: "" });
   const [deptError, setDeptError] = useState("");
@@ -67,8 +67,9 @@ export function SettingsClient() {
     <div className="space-y-4">
       {/* Header */}
       <div>
-        <h1 className="text-lg font-semibold text-gray-900">Settings</h1>
-        <p className="text-xs text-gray-500 mt-0.5">Manage clinic configuration and preferences</p>
+        <h1 className="text-lg font-semibold text-gray-900">Departments</h1>
+        {/* <p className="text-xs text-gray-500 mt-0.5">Manage clinic configuration and preferences</p> */}
+        <p className="text-xs text-gray-500 mt-0.5">Manage clinic departments</p>
       </div>
 
       {/* Tab nav */}

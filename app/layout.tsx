@@ -12,6 +12,7 @@ import { Poppins } from "next/font/google";
 import { Toaster } from "sonner";
 import { SidebarProvider } from "@/components/sidebar-context";
 import { ThemeProvider } from "next-themes";
+import { NEXT_PUBLIC_CLINIC_NAME, NEXT_PUBLIC_CLINIC_TAGLINE, NEXT_PUBLIC_LOGO_URL } from "@/constants/ClinicDetails";
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -20,21 +21,25 @@ const poppins = Poppins({
   display: 'swap',
 })
 
+const CLINIC_NAME = NEXT_PUBLIC_CLINIC_NAME || "ClinicHMS";
+const CLINIC_TAGLINE = NEXT_PUBLIC_CLINIC_TAGLINE || "Hospital Management System";
+const LOGO_URL = NEXT_PUBLIC_LOGO_URL || "";
+
 export const metadata: Metadata = {
   title: {
-    template: "%s | ClinicHMS",
-    default: "ClinicHMS — Hospital Management System",
+    template: `%s | ${CLINIC_NAME}`,
+    default: `${CLINIC_NAME} — ${CLINIC_TAGLINE}`,
   },
   description: "Internal clinic and hospital management system",
   robots: "noindex, nofollow",
 };
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  console.log("   📧 Email: admin@clinic.com");
-  console.log("   🔑 Password: Admin@123456");
   return (
     <html lang="en" className={poppins.variable}>
       <head>
+         {LOGO_URL && <link rel="icon" href={LOGO_URL} />}
+        {LOGO_URL && <link rel="shortcut icon" href={LOGO_URL} />}
+        {LOGO_URL && <link rel="apple-touch-icon" href={LOGO_URL} />}
         <script dangerouslySetInnerHTML={{
           __html: `
     (function() {

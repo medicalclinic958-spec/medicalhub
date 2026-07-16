@@ -8,6 +8,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { NotificationsPanel } from "./notifications-panel";
 import { useSidebar } from "../sidebar-context";
+import { NEXT_PUBLIC_CLINIC_NAME, NEXT_PUBLIC_LOGO_URL } from "@/constants/ClinicDetails";
 
 interface HeaderProps { session: Session }
 
@@ -42,10 +43,16 @@ export function Header({ session }: HeaderProps) {
       </button>
 
       <div className="flex items-center gap-2 md:hidden">
-        <div className="w-7 h-7 rounded-lg bg-teal-600 flex items-center justify-center shrink-0">
-          <Hospital className="w-4 h-4 text-white" />
-        </div>
-        <span className="font-semibold text-sm text-gray-900 whitespace-nowrap">ClinicHMS</span>
+        {NEXT_PUBLIC_LOGO_URL ? (
+          <img src={NEXT_PUBLIC_LOGO_URL} alt="Logo" className="w-7 h-7 rounded-lg object-cover shrink-0" />
+        ) : (
+          <div className="w-7 h-7 rounded-lg bg-teal-600 flex items-center justify-center shrink-0">
+            <Hospital className="w-4 h-4 text-white" />
+          </div>
+        )}
+        <span className="font-semibold text-sm text-gray-900 whitespace-nowrap">
+          {NEXT_PUBLIC_CLINIC_NAME || "ClinicHMS"}
+        </span>
       </div>
 
       <div className="flex-1" />

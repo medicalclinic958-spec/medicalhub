@@ -113,7 +113,7 @@ export function LabReportTab({ test, id }: LabReportTabProps) {
     const handlePrint = () => {
         const printWindow = window.open("", "_blank");
         if (!printWindow) { toast.error("Please allow pop-ups to print."); return; }
-        printWindow.document.write(generateLabReportPrintHtml(test, existingReport));
+        printWindow.document.write(generateLabReportPrintHtml(test, existingReport, "/logo.png"));
         printWindow.document.close();
         printWindow.focus();
         setTimeout(() => { printWindow.print(); printWindow.close(); }, 400);
@@ -122,7 +122,7 @@ export function LabReportTab({ test, id }: LabReportTabProps) {
     const handleDownloadPdf = async () => {
         setIsPdfLoading(true);
         try {
-            const blob = await pdf(<LabReportPdfTemplate test={test} report={existingReport} />).toBlob();
+            const blob = await pdf(<LabReportPdfTemplate test={test} report={existingReport} logoUrl="/logo.png" />).toBlob();
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;

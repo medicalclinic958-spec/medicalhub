@@ -13,9 +13,11 @@ import {
   Sparkles,
   Hospital,
   X,
+  Building,
 } from "lucide-react";
 import { useState } from "react";
 import { useSidebar } from "../sidebar-context";
+import { NEXT_PUBLIC_CLINIC_NAME, NEXT_PUBLIC_CLINIC_TAGLINE, NEXT_PUBLIC_LOGO_HEIGHT, NEXT_PUBLIC_LOGO_URL, NEXT_PUBLIC_LOGO_WIDTH } from "@/constants/ClinicDetails";
 
 interface NavItem {
   label: string;
@@ -24,6 +26,12 @@ interface NavItem {
   permission?: string;
   category: string;
 }
+
+const LOGO_URL = NEXT_PUBLIC_LOGO_URL || "";
+const LOGO_WIDTH = NEXT_PUBLIC_LOGO_WIDTH || "50px";
+const LOGO_HEIGHT = NEXT_PUBLIC_LOGO_HEIGHT || "50px";
+const CLINIC_NAME = NEXT_PUBLIC_CLINIC_NAME || "ClinicHMS";
+const CLINIC_TAGLINE = NEXT_PUBLIC_CLINIC_TAGLINE || "Management System";
 
 const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, category: "Clinical" },
@@ -45,10 +53,10 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 const ADMIN_ITEMS: NavItem[] = [
+  { label: "Departments", href: "/settings", icon: Hospital, permission: "settings:view", category: "Administration" },
   { label: "Users", href: "/users", icon: Shield, permission: "users:view", category: "Administration" },
   { label: "Roles", href: "/roles", icon: Building2, permission: "roles:view", category: "Administration" },
   { label: "Audit Logs", href: "/audit-logs", icon: ScrollText, permission: "audit_logs:view", category: "Administration" },
-  { label: "Settings", href: "/settings", icon: Settings, permission: "settings:view", category: "Administration" },
 ];
 
 const ALL_ITEMS = [...NAV_ITEMS, ...ADMIN_ITEMS];
@@ -105,13 +113,17 @@ export function Sidebar({ session }: SidebarProps) {
       >
         {/* Brand */}
         <div className="flex items-center gap-3 px-4 py-5 border-b border-gray-300 relative">
-          <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center shrink-0">
-            <Hospital className="w-5 h-5 text-white" />
-          </div>
+          {LOGO_URL ? (
+            <img src={LOGO_URL} alt="Logo" className="rounded-lg object-cover shrink-0" style={{ width: LOGO_WIDTH, height: LOGO_HEIGHT }} />
+          ) : (
+            <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center shrink-0">
+              <Hospital className="w-5 h-5 text-white" />
+            </div>
+          )}
           {showLabels && (
             <div className="overflow-hidden flex-1">
-              <p className="font-semibold text-sm text-gray-900 leading-tight">ClinicHMS</p>
-              <p className="text-xs text-gray-500 truncate">Management System</p>
+              <p className="font-semibold text-sm text-gray-900 leading-tight">{CLINIC_NAME}</p>
+              <p className="text-xs text-gray-500 truncate">{CLINIC_TAGLINE}</p>
             </div>
           )}
 
