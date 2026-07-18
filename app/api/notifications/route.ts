@@ -2,7 +2,8 @@ import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth/auth.config";
 import connectDB from "@/lib/db/mongoose";
 import { Notification } from "@/models/user.model";
-import { apiSuccess, apiError, getPaginationParams, buildPagination } from "@/lib/utils";
+import { apiSuccess, apiError, getPaginationParams, buildPagination, getIpFromHeaders } from "@/lib/utils";
+import { auditLog } from "@/lib/auth/audit";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -27,10 +28,26 @@ export async function PUT(req: NextRequest) {
   const body = await req.json();
   if (body.markAllRead) {
     await Notification.updateMany({ user: session.user.id, isRead: false }, { isRead: true });
+    await auditLog({
+      userId: session.user.id,
+      action: "update",
+      module: "system",
+      description: "Marked all notifications as read",
+      ipAddress: getIpFromHeaders(req.headers),
+    });
     return apiSuccess(null, "All notifications marked as read");
   }
   if (body.id) {
     await Notification.findOneAndUpdate({ _id: body.id, user: session.user.id }, { isRead: true });
+    await auditLog({
+      userId: session.user.id,
+      action: "update",
+      module: "system",
+      description: `Marked notification as read: ${body.id}`,
+      resourceId: body.id,
+      resourceType: "Notification",
+      ipAddress: getIpFromHeaders(req.headers),
+    });
     return apiSuccess(null, "Notification marked as read");
   }
   return apiError("Invalid request", 400);

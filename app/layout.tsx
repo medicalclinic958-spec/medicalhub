@@ -12,7 +12,8 @@ import { Poppins } from "next/font/google";
 import { Toaster } from "sonner";
 import { SidebarProvider } from "@/components/sidebar-context";
 import { ThemeProvider } from "next-themes";
-import { NEXT_PUBLIC_CLINIC_NAME, NEXT_PUBLIC_CLINIC_TAGLINE, NEXT_PUBLIC_LOGO_URL } from "@/constants/ClinicDetails";
+import { NEXT_PUBLIC_CLINIC_NAME, NEXT_PUBLIC_CLINIC_TAGLINE, NEXT_PUBLIC_LOGO_URL, NEXT_PUBLIC_THEME_COLOR } from "@/constants/ClinicDetails";
+import { RegisterServiceWorker } from "@/components/pwa/register-service-worker";
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -30,7 +31,14 @@ export const metadata: Metadata = {
     template: `%s | ${CLINIC_NAME}`,
     default: `${CLINIC_NAME} — ${CLINIC_TAGLINE}`,
   },
-  description: "Internal clinic and hospital management system",
+  description: CLINIC_TAGLINE,
+  applicationName: CLINIC_NAME,
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: CLINIC_NAME,
+  },
+  themeColor: NEXT_PUBLIC_THEME_COLOR,
   robots: "noindex, nofollow",
 };
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -40,6 +48,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
          {LOGO_URL && <link rel="icon" href={LOGO_URL} />}
         {LOGO_URL && <link rel="shortcut icon" href={LOGO_URL} />}
         {LOGO_URL && <link rel="apple-touch-icon" href={LOGO_URL} />}
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content={CLINIC_NAME} />
+        <meta name="theme-color" content={NEXT_PUBLIC_THEME_COLOR} />
         <script dangerouslySetInnerHTML={{
           __html: `
     (function() {
@@ -51,6 +63,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         }} />
       </head>
       <body className="antialiased">
+        <RegisterServiceWorker />
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           <SidebarProvider>
             <Providers>{children}</Providers>

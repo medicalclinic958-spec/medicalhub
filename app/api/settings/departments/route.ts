@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth/auth.config";
 import connectDB from "@/lib/db/mongoose";
 import { Department } from "@/models/clinical.model";
-import { apiSuccess, apiError } from "@/lib/utils";
-import { hasPermission } from "@/lib/auth/audit";
+import { apiSuccess, apiError, getIpFromHeaders } from "@/lib/utils";
+import { auditLog, hasPermission } from "@/lib/auth/audit";
 
 export async function GET(_req: NextRequest) {
   const session = await auth();
@@ -21,5 +21,16 @@ export async function POST(req: NextRequest) {
   if (!body.name || !body.code) return apiError("Name and code are required", 422);
   await connectDB();
   const dept = await Department.create({ name: body.name, code: body.code.toUpperCase(), description: body.description });
+
+  await auditLog({
+    userId: session.user.id,
+    action: "create",
+    module: "settings",
+    description: `Created department: ${dept.name} (${dept.code})`,
+    resourceId: dept._id.toString(),
+    resourceType: "Department",
+    ipAddress: getIpFromHeaders(req.headers),
+  });
+
   return apiSuccess(dept, "Department created", 201);
 }

@@ -32,6 +32,17 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         { new: true }
     ).lean();
 
-    // await auditLog({ ...});
+    if (!patient) return apiError("Patient not found", 404);
+
+    await auditLog({
+        userId: session.user.id,
+        action: "update",
+        module: "patients",
+        description: `Marked patient as deceased: ${patient.firstName || ""} ${patient.lastName || ""}`.trim(),
+        resourceId: id,
+        resourceType: "Patient",
+        ipAddress: getIpFromHeaders(req.headers),
+    });
+
     return apiSuccess(patient, "Patient marked as deceased");
 }

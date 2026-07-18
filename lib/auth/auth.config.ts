@@ -4,6 +4,39 @@ import bcrypt from "bcryptjs";
 import connectDB from "@/lib/db/mongoose";
 import { User } from "@/models/user.model";
 
+function extractPermissions(role: unknown): string[] {
+  const roleRecord = role as Record<string, unknown> | null | undefined;
+  if (!Array.isArray(roleRecord?.permissions)) return [];
+  return (roleRecord.permissions as Record<string, string>[]).map(
+    (permission) => `${permission.module}:${permission.action}`
+  );
+}
+
+async function syncTokenFromDb(token: Record<string, unknown>) {
+  await connectDB();
+  const dbUser = await User.findById(token.id)
+    .populate({ path: "role", populate: { path: "permissions" } })
+    .lean();
+
+  if (!dbUser) {
+    token.status = "inactive";
+    token.permissions = [];
+    token.isSuperAdmin = false;
+    return token;
+  }
+
+  const role = dbUser.role as Record<string, unknown> | null | undefined;
+
+  token.status = dbUser.status;
+  token.mustChangePassword = dbUser.mustChangePassword;
+  token.isSuperAdmin = dbUser.isSuperAdmin;
+  token.role = role ? (role as { name: string }).name : undefined;
+  token.roleSlug = role ? (role as { slug: string }).slug : undefined;
+  token.permissions = extractPermissions(role);
+
+  return token;
+}
+
 export const authOptions = {
   providers: [
     CredentialsProvider({
@@ -38,9 +71,7 @@ export const authOptions = {
         }
 
         const role = user.role as Record<string, unknown>;
-        const permissions = Array.isArray(role?.permissions)
-          ? (role.permissions as Record<string, string>[]).map(p => `${p.module}:${p.action}`)
-          : [];
+        const permissions = extractPermissions(role);
 
         return {
           id: user._id.toString(),
@@ -68,16 +99,8 @@ export const authOptions = {
         token.isSuperAdmin = user.isSuperAdmin;
         token.status = user.status;
         token.mustChangePassword = user.mustChangePassword;
-      }
-
-      // Refetch from DB when session is updated
-      if (trigger === "update" && token.id) {
-        await connectDB();
-        const dbUser = await User.findById(token.id).lean();
-        if (dbUser) {
-          token.mustChangePassword = dbUser.mustChangePassword;
-          token.status = dbUser.status;
-        }
+      } else if (token.id) {
+        await syncTokenFromDb(token);
       }
 
       return token;

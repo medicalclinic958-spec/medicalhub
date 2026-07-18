@@ -8,6 +8,12 @@ export const NEXT_PUBLIC_CLINIC_ADDRESS = '123 Healthcare Avenue, Medical Distri
 export const NEXT_PUBLIC_CLINIC_PHONE = '+92 300 1234567';
 export const NEXT_PUBLIC_CLINIC_EMAIL = 'info@clinichms.com';
 
+export const NEXT_PUBLIC_THEME_COLOR = '#0d9488';
+export const PWA_BACKGROUND_COLOR = '#ffffff';
+export const PWA_START_URL = '/';
+export const PWA_ICON_192_URL = '/icons/icon-192.png';
+export const PWA_ICON_512_URL = '/icons/icon-512.png';
+
 export const EMR_PRINT_PDF_TEMPLATE_COLORS = {
   primary: "#0d9488",
   text: "#1a1a1a",

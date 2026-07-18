@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-const PUBLIC_ROUTES = ["/login", "/forgot-password", "/reset-password", "/clinic-bg.jpg"];
+const PUBLIC_ROUTES = ["/login", "/forgot-password", "/reset-password", "/offline", "/clinic-bg.jpg"];
 const PUBLIC_API_ROUTES = ["/api/auth"];
+const PASSWORD_CHANGE_ALLOWED_API_PREFIXES = ["/api/profile/"];
+
+function isPasswordChangeAllowedApi(pathname: string) {
+  return PASSWORD_CHANGE_ALLOWED_API_PREFIXES.some((route) => pathname.startsWith(route));
+}
 
 async function getSessionToken(req: NextRequest) {
   return getToken({
@@ -45,6 +50,17 @@ export async function proxy(req: NextRequest) {
     !pathname.startsWith("/api/")
   ) {
     return NextResponse.redirect(new URL("/profile", req.url));
+  }
+
+  if (
+    token.mustChangePassword &&
+    pathname.startsWith("/api/") &&
+    !isPasswordChangeAllowedApi(pathname)
+  ) {
+    return NextResponse.json(
+      { success: false, error: "Password change required before accessing this resource" },
+      { status: 403 }
+    );
   }
 
   const isSuperAdmin = token.isSuperAdmin as boolean;
@@ -120,5 +136,5 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|public/|.*\\.jpg|.*\\.png|.*\\.svg).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|.*\\.jpg|.*\\.png|.*\\.svg|.*\\.webmanifest).*)"],
 };
