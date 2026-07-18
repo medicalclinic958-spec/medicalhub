@@ -114,7 +114,7 @@ export function Sidebar({ session }: SidebarProps) {
         {/* Brand */}
         <div className="flex items-center gap-3 px-4 py-5 border-b border-gray-300 relative">
           {LOGO_URL ? (
-            <img src={LOGO_URL} alt="Logo" className="rounded-lg object-cover shrink-0" style={{ width: LOGO_WIDTH, height: LOGO_HEIGHT }} />
+            <img src={LOGO_URL} alt="Logo" className="rounded-lg object-cover shrink-0" style={{ width: '50px', height:'50px' }} />
           ) : (
             <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center shrink-0">
               <Hospital className="w-5 h-5 text-white" />

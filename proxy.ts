@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-const PUBLIC_ROUTES = ["/login", "/forgot-password", "/reset-password", "/offline", "/clinic-bg.jpg"];
+const PUBLIC_ROUTES = ["/login", "/forgot-password", "/reset-password", "/offline", "/clinic-bg.jpg", "logo.png"];
 const PUBLIC_API_ROUTES = ["/api/auth"];
 const PASSWORD_CHANGE_ALLOWED_API_PREFIXES = ["/api/profile/"];
 
