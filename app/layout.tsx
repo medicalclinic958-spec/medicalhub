@@ -1,10 +1,3 @@
-import dns from "dns/promises";
-
-dns.setServers([
-  "8.8.8.8",
-  "8.8.4.4"
-]);
-
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/components/providers";

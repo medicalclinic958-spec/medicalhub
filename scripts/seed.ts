@@ -9,8 +9,6 @@
  * Optional env:
  *   ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_PHONE, ADMIN_FIRST_NAME, ADMIN_LAST_NAME
  */
-
-import dns from "dns/promises";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
@@ -26,7 +24,6 @@ import {
   NEXT_PUBLIC_LOGO_URL,
 } from "../constants/ClinicDetails";
 
-dns.setServers(["8.8.8.8", "8.8.4.4"]);
 
 dotenv.config({ path: ".env.local" });
 dotenv.config({ path: ".env" });
@@ -55,11 +52,11 @@ async function hardResetAndSeed() {
     process.exit(1);
   }
 
-  const adminEmail = (process.env.ADMIN_EMAIL || "admin@clinic.com").toLowerCase().trim();
+  const adminEmail = (process.env.ADMIN_EMAIL || "admin@medicalhub.com").toLowerCase().trim();
   const adminPassword = process.env.ADMIN_PASSWORD || "Admin@123";
   const adminPhone = process.env.ADMIN_PHONE || "03001234567";
-  const adminFirstName = process.env.ADMIN_FIRST_NAME || "Super";
-  const adminLastName = process.env.ADMIN_LAST_NAME || "Admin";
+  const adminFirstName = process.env.ADMIN_FIRST_NAME || "Doctor";
+  const adminLastName = process.env.ADMIN_LAST_NAME || "Awais";
 
   console.log("\n⚠️  HARD RESET starting...");
   console.log(`Database : ${mongoUri.replace(/\/\/.*@/, "//***@")}`);
