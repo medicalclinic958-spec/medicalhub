@@ -67,4 +67,5 @@ export const DEFAULT_PERMISSIONS = [
   { module: "settings", action: "view", description: "View settings" },
   { module: "settings", action: "update", description: "Update settings" },
   { module: "audit_logs", action: "view", description: "View audit logs" },
+  { module: "developer_reports", action: "create", description: "Send bug reports to developers" },
 ] as const;

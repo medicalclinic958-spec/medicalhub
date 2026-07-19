@@ -504,3 +504,10 @@ export type UpdateInvoiceInput = z.infer<typeof updateInvoiceSchema>;
 export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;
 export type UpdateExpenseInput = z.infer<typeof updateExpenseSchema>;
 
+export const developerReportSchema = z.object({
+  title: z.string().min(3, "Title must be at least 3 characters").max(120),
+  message: z.string().min(10, "Please provide more detail").max(5000),
+  severity: z.enum(["low", "medium", "high", "critical"]),
+  source: z.string().max(200).optional(),
+  page: z.string().max(500).optional(),
+});

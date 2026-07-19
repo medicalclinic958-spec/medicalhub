@@ -23,7 +23,8 @@ export type PermissionModule =
   | "opd"
   | "emr"
   | "prescriptions"
-  | "expenses";
+  | "expenses"
+  | "developer_reports";
 
 export interface Permission {
   _id: string;

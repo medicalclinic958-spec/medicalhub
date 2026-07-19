@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import { Session } from "next-auth";
 import { signOut } from "next-auth/react";
-import { LogOut, ChevronDown, UserCircle, Menu, Hospital, Sun, Moon } from "lucide-react";
+import { LogOut, ChevronDown, UserCircle, Menu, Hospital, Sun, Moon, LifeBuoy } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { NotificationsPanel } from "./notifications-panel";
+import { DeveloperReportModal } from "./developer-report-modal";
 import { useSidebar } from "../sidebar-context";
 import { NEXT_PUBLIC_CLINIC_NAME, NEXT_PUBLIC_LOGO_URL } from "@/constants/ClinicDetails";
 
@@ -14,8 +15,12 @@ interface HeaderProps { session: Session }
 
 export function Header({ session }: HeaderProps) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const { toggleMobile } = useSidebar();
+  const canSendDeveloperReport =
+    session.user.isSuperAdmin ||
+    (session.user.permissions || []).includes("developer_reports:create");
 
   useEffect(() => {
     const stored = localStorage.getItem("theme");
@@ -98,6 +103,18 @@ export function Header({ session }: HeaderProps) {
               >
                 <UserCircle className="w-4 h-4" /> Profile
               </Link>
+              {canSendDeveloperReport && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserMenuOpen(false);
+                    setReportOpen(true);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 hover:text-gray-800 cursor-pointer"
+                >
+                  <LifeBuoy className="w-4 h-4" /> Report to Developers
+                </button>
+              )}
               <div className="border-t border-gray-100 mt-1 pt-1">
                 <button
                   onClick={() => signOut({ callbackUrl: "/login" })}
@@ -110,6 +127,8 @@ export function Header({ session }: HeaderProps) {
           </>
         )}
       </div>
+
+      <DeveloperReportModal open={reportOpen} onClose={() => setReportOpen(false)} />
     </header>
   );
 }

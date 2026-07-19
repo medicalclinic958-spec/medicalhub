@@ -23,7 +23,7 @@ interface Role {
 const MODULE_ORDER = [
   "patients", "appointments", "doctors", "emr", "prescriptions", "opd",
   "billing", "lab", "labcatalog", "pharmacy", "inventory", "expenses", "staff",
-  "reports", "users", "roles", "settings", "audit_logs",
+  "reports", "users", "roles", "settings", "audit_logs", "developer_reports",
 ];
 const ACTIONS = ["view", "create", "update", "delete", "approve", "export"];
 const ACTION_COLORS: Record<string, string> = {
