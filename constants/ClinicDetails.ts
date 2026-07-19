@@ -2,11 +2,11 @@
 export const NEXT_PUBLIC_LOGO_URL = '/logo.png';
 export const NEXT_PUBLIC_LOGO_WIDTH = '50px';
 export const NEXT_PUBLIC_LOGO_HEIGHT = '50px';
-export const NEXT_PUBLIC_CLINIC_NAME = 'ClinicHMS';
+export const NEXT_PUBLIC_CLINIC_NAME = 'Saif Ali Medical Clinic';
 export const NEXT_PUBLIC_CLINIC_TAGLINE = 'Hospital Management System';
-export const NEXT_PUBLIC_CLINIC_ADDRESS = '123 Healthcare Avenue, Medical District';
-export const NEXT_PUBLIC_CLINIC_PHONE = '+92 300 1234567';
-export const NEXT_PUBLIC_CLINIC_EMAIL = 'info@clinichms.com';
+export const NEXT_PUBLIC_CLINIC_ADDRESS = 'Khanki Head Road, Saroki Cheema, Wazirabad';
+export const NEXT_PUBLIC_CLINIC_PHONE = '+92 345 8768582';
+export const NEXT_PUBLIC_CLINIC_EMAIL = 'medicalclinic958@gmail.com';
 
 export const NEXT_PUBLIC_THEME_COLOR = '#0d9488';
 export const PWA_BACKGROUND_COLOR = '#ffffff';
