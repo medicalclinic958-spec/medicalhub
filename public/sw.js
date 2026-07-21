@@ -1,4 +1,4 @@
-const CACHE_NAME = "clinichms-shell-v1";
+const CACHE_NAME = "clinichms-shell-v2";
 const OFFLINE_URL = "/offline";
 
 self.addEventListener("install", (event) => {
@@ -17,21 +17,36 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+function shouldBypass(request) {
+  if (request.method !== "GET") return true;
+
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return true;
+  if (url.pathname.startsWith("/api/")) return true;
+  if (url.pathname.startsWith("/_next/")) return true;
+  if (url.pathname === "/sw.js") return true;
+  if (url.pathname.endsWith(".webmanifest")) return true;
+
+  // Next.js App Router flight / prefetch requests must not go through the SW.
+  if (request.headers.get("RSC")) return true;
+  if (request.headers.get("Next-Router-Prefetch")) return true;
+  if (request.headers.get("Next-Router-State-Tree")) return true;
+  if (url.searchParams.has("_rsc")) return true;
+
+  return false;
+}
+
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return;
+  if (shouldBypass(event.request)) return;
+
+  // Only handle top-level page navigations; everything else goes to the network directly.
+  if (event.request.mode !== "navigate") return;
 
   event.respondWith(
-    fetch(event.request)
-      .then((response) => response)
-      .catch(async () => {
-        const cache = await caches.open(CACHE_NAME);
-        const cached = await cache.match(event.request);
-        if (cached) return cached;
-        if (event.request.mode === "navigate") {
-          const offline = await cache.match(OFFLINE_URL);
-          if (offline) return offline;
-        }
-        return Response.error();
-      })
+    fetch(event.request).catch(async () => {
+      const cache = await caches.open(CACHE_NAME);
+      const offline = await cache.match(OFFLINE_URL);
+      return offline || Response.error();
+    })
   );
 });

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Poppins } from "next/font/google";
@@ -18,6 +18,12 @@ const poppins = Poppins({
 const CLINIC_NAME = NEXT_PUBLIC_CLINIC_NAME || "ClinicHMS";
 const CLINIC_TAGLINE = NEXT_PUBLIC_CLINIC_TAGLINE || "Hospital Management System";
 const LOGO_URL = NEXT_PUBLIC_LOGO_URL || "";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   title: {
@@ -48,9 +54,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{
           __html: `
     (function() {
-      if (localStorage.getItem("theme") === "dark") {
-        document.documentElement.classList.add("dark");
-      }
+      try {
+        if (localStorage.getItem("theme") === "dark") {
+          document.documentElement.classList.add("dark");
+        }
+      } catch (e) {}
     })();
   `,
         }} />
