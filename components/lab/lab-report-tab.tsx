@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import axios from "axios";
 import { AlertTriangle, Save, Printer, Pencil, Download } from "lucide-react";
 import { Card, CardBody, Badge, Button, Alert, FormField, Input, Modal } from "@/components/ui";
-import { formatDate, cn } from "@/lib/utils";
+import { formatDate, cn, getMissingLabTestResults } from "@/lib/utils";
 import { toast } from "sonner";
 import { generateLabReportPrintHtml, LabReportPdfTemplate } from "../printTemplates/lab-report-print-template";
 import { pdf } from "@react-pdf/renderer";
@@ -16,7 +16,7 @@ interface LabTestDetail {
     _id: string; labTestId: string;
     patient: { firstName: string; lastName: string; patientId: string; dateOfBirth?: string; gender?: string; bloodGroup?: string };
     requestedBy: { firstName: string; lastName: string };
-    tests: { testName: string; testCode?: string; category: string; cost: number }[];
+    tests: { testName: string; testCode?: string; category: string; cost: number; catalogId?: string | { _id?: string } }[];
     results: {
         catalogId: string;
         testName: string;
@@ -59,13 +59,13 @@ export function LabReportTab({ test, id }: LabReportTabProps) {
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [isPdfLoading, setIsPdfLoading] = useState(false);
 
-    const missingResults = test.tests?.filter(t => !test.results?.some(r => r.testName === t.testName));
+    const missingResults = getMissingLabTestResults(test.tests, test.results);
 
     const { data: reportData, isLoading: reportLoading } = useQuery({
         queryKey: ["report", id],
-        queryFn: () => axios.get(`/api/patientReports?labTestId=${id}`).then(r => {
+        queryFn: () => axios.get("/api/patientReports", { params: { labTestId: id, limit: 1 } }).then(r => {
             const reports = r.data?.data || [];
-            return reports.find((rep: ExistingReport) => rep._id) || null;
+            return (reports[0] as ExistingReport | undefined) || null;
         }),
         enabled: ["completed", "delivered"].includes(test.status),
     });

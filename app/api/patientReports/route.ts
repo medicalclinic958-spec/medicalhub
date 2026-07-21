@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth/auth.config";
 import connectDB from "@/lib/db/mongoose";
 import { Report, LabTest } from "@/models/operations.model";
-import { apiSuccess, apiError, getPaginationParams, buildPagination, getIpFromHeaders } from "@/lib/utils";
+import { apiSuccess, apiError, getPaginationParams, buildPagination, getIpFromHeaders, getMissingLabTestResults } from "@/lib/utils";
 import { auditLog, hasPermission } from "@/lib/auth/audit";
 import { z } from "zod";
 
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     await connectDB();
     const sp = req.nextUrl.searchParams;
     const { page, limit, skip } = getPaginationParams(sp);
-    const labTestId = sp.get("labTest") || "";
+    const labTestId = sp.get("labTestId") || sp.get("labTest") || "";
 
     const filter: Record<string, unknown> = {};
     if (labTestId) filter.labTest = labTestId;
@@ -62,9 +62,7 @@ export async function POST(req: NextRequest) {
         return apiError("Report can only be generated for completed or delivered orders", 400);
     }
 
-    const missingResults = labTest.tests.filter(
-        t => !labTest.results?.some(r => r.testName === t.testName && r.value)
-    );
+    const missingResults = getMissingLabTestResults(labTest.tests, labTest.results);
 
     if (missingResults.length > 0) {
         return apiError(`Missing results for: ${missingResults.map(t => t.testName).join(", ")}`, 400);
