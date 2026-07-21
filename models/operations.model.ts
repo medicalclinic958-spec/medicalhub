@@ -541,14 +541,7 @@ export interface IReport extends Document {
     category: string;
     cost: number;
   }[];
-  results: {
-    testName: string;
-    value: string;
-    unit?: string;
-    referenceRange?: string;
-    isAbnormal?: boolean;
-    notes?: string;
-  }[];
+  results: ILabTestResult[];
   labTechnician: {
     name: string;
     signature: string;
@@ -578,16 +571,7 @@ const ReportSchema = new Schema<IReport>(
         cost: Number,
       },
     ],
-    results: [
-      {
-        testName: { type: String, required: true },
-        value: { type: String, required: true },
-        unit: String,
-        referenceRange: String,
-        isAbnormal: { type: Boolean, default: false },
-        notes: String,
-      },
-    ],
+    results: { type: [LabTestResultSchema], default: [] },
     labTechnician: {
       name: { type: String, required: true },
       signature: { type: String, required: true },
