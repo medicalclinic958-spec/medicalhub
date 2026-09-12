@@ -13,7 +13,7 @@ import {
   Pagination, Badge, Alert,
 } from "@/components/ui";
 import { createPatientSchema, CreatePatientInput } from "@/lib/validations";
-import { formatDate, cn } from "@/lib/utils";
+import { formatDate, cn, ageToDateOfBirth } from "@/lib/utils";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -43,6 +43,7 @@ export function PatientsClient() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createError, setCreateError] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [ageInput, setAgeInput] = useState("");
 
   const perms = session?.user.permissions || [];
   const isSA = session?.user.isSuperAdmin;
@@ -85,6 +86,7 @@ export function PatientsClient() {
       qc.invalidateQueries({ queryKey: ["patients"] });
       setCreateOpen(false);
       reset();
+      setAgeInput("");
       setCreateError("");
       toast.success("Patient created successfully!");
     },
@@ -306,7 +308,7 @@ export function PatientsClient() {
       </div>
 
       {/* Create Patient Modal */}
-      <Modal open={createOpen} onClose={() => { setCreateOpen(false); reset(); setCreateError(""); }} title="New Patient" size="lg">
+      <Modal open={createOpen} onClose={() => { setCreateOpen(false); reset(); setAgeInput(""); setCreateError(""); }} title="New Patient" size="lg">
         {createError && <Alert type="error">{createError}</Alert>}
         <form onSubmit={handleSubmit((d) => createMutation.mutate(d))} className="space-y-4 mt-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -327,8 +329,21 @@ export function PatientsClient() {
                 <option value="other">Other</option>
               </Select>
             </FormField>
-            <FormField label="Date of Birth" required error={errors.dateOfBirth?.message}>
-              <Input type="date" {...register("dateOfBirth")} error={!!errors.dateOfBirth} />
+            <FormField label="Age (years)" required error={errors.dateOfBirth?.message}>
+              <Input
+                type="number"
+                min={0}
+                max={120}
+                placeholder="e.g. 34"
+                value={ageInput}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setAgeInput(val);
+                  const n = parseInt(val, 10);
+                  setValue("dateOfBirth", !isNaN(n) && n >= 0 ? ageToDateOfBirth(n) : "", { shouldValidate: true });
+                }}
+                error={!!errors.dateOfBirth}
+              />
             </FormField>
           </div>
 
@@ -437,7 +452,7 @@ export function PatientsClient() {
           </FormField>
 
           <div className="flex justify-end gap-2 pt-2 border-t border-gray-300">
-            <Button type="button" variant="secondary" onClick={() => { setCreateOpen(false); reset(); setCreateError(""); }}>
+            <Button type="button" variant="secondary" onClick={() => { setCreateOpen(false); reset(); setAgeInput(""); setCreateError(""); }}>
               Cancel
             </Button>
             <Button type="submit" loading={createMutation.isPending}>Create Patient</Button>

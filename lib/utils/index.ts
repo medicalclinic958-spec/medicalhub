@@ -67,6 +67,27 @@ export function formatDate(date: Date | string, format = "DD/MM/YYYY"): string {
   return format.replace("DD", day).replace("MM", month).replace("YYYY", String(year));
 }
 
+// Converts a simple age in years into an approximate ISO date-of-birth
+// string (Jan 1 of the birth year). Used across patient forms so staff can
+// enter "34" instead of picking an exact date.
+export function ageToDateOfBirth(age: number): string {
+  const year = new Date().getFullYear() - age;
+  return `${year}-01-01`;
+}
+
+// Inverse of ageToDateOfBirth — derives the current age (in years) from a
+// stored dateOfBirth, so edit forms can pre-fill the age input.
+export function dateOfBirthToAge(dob?: string | Date | null): number | "" {
+  if (!dob) return "";
+  const birth = new Date(dob);
+  if (isNaN(birth.getTime())) return "";
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}
+
 export function isToday(date: Date): boolean {
   const today = new Date();
   const d = new Date(date);

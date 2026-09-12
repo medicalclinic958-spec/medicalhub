@@ -3,12 +3,14 @@ import { Modal, FormField, Input, Select, Button, Alert } from "@/components/ui"
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { updatePatientSchema, UpdatePatientInput } from "@/lib/validations";
-import { useEffect } from "react";
+import { ageToDateOfBirth, dateOfBirthToAge } from "@/lib/utils";
+import { useEffect, useState } from "react";
 
 export function EditPatientModal({ open, onClose, patient, onUpdate, isPending, error }: any) {
     const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<UpdatePatientInput>({
         resolver: zodResolver(updatePatientSchema),
     });
+    const [ageInput, setAgeInput] = useState("");
 
     const status = watch("status");
     const isDeceased = status === "deceased";
@@ -40,6 +42,7 @@ export function EditPatientModal({ open, onClose, patient, onUpdate, isPending, 
                 dateOfDeath: patient.dateOfDeath || "",
                 causeOfDeath: patient.causeOfDeath || "",
             });
+            setAgeInput(dateOfBirthToAge(patient.dateOfBirth).toString());
         }
     }, [open, patient, reset]);
 
@@ -65,8 +68,20 @@ export function EditPatientModal({ open, onClose, patient, onUpdate, isPending, 
                             <option value="other">Other</option>
                         </Select>
                     </FormField>
-                    <FormField label="Date of Birth" required error={errors.dateOfBirth?.message}>
-                        <Input type="date" {...register("dateOfBirth")} />
+                    <FormField label="Age (years)" required error={errors.dateOfBirth?.message}>
+                        <Input
+                            type="number"
+                            min={0}
+                            max={120}
+                            placeholder="e.g. 34"
+                            value={ageInput}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setAgeInput(val);
+                                const n = parseInt(val, 10);
+                                setValue("dateOfBirth", !isNaN(n) && n >= 0 ? ageToDateOfBirth(n) : "", { shouldValidate: true });
+                            }}
+                        />
                     </FormField>
                 </div>
 

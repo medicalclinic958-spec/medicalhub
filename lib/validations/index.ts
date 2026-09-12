@@ -65,7 +65,7 @@ export const createPatientSchema = z.object({
   firstName: z.string().min(1, "First name is required").max(50),
   lastName: z.string().min(1, "Last name is required").max(50),
   gender: z.enum(["male", "female", "other"]),
-  dateOfBirth: z.string().min(1, "Date of birth is required"),
+  dateOfBirth: z.string().min(1, "Age is required"),
   phone: z.string().min(10, "Valid phone number required"),
   email: z.string().email().optional().or(z.literal("")),
   address: z
@@ -105,7 +105,7 @@ export const updatePatientSchema = z.object({
   firstName: z.string().min(1, "First name required"),
   lastName: z.string().min(1, "Last name required"),
   gender: z.enum(["male", "female", "other"]),
-  dateOfBirth: z.string().min(1, "Date of birth required"),
+  dateOfBirth: z.string().min(1, "Age is required"),
   phone: z.string().min(1, "Phone number required"),
   email: z.string().email().optional().or(z.literal("")),
   bloodGroup: z.string().optional(),
