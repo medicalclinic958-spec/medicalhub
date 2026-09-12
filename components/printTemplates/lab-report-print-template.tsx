@@ -2,7 +2,6 @@
 import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
 import { 
   NEXT_PUBLIC_CLINIC_NAME, 
-  NEXT_PUBLIC_CLINIC_TAGLINE, 
   NEXT_PUBLIC_CLINIC_ADDRESS, 
   NEXT_PUBLIC_CLINIC_PHONE,
   LAB_PRINT_PDF_TEMPLATE_COLORS,
@@ -10,7 +9,6 @@ import {
 
 const CLINIC = {
   name: NEXT_PUBLIC_CLINIC_NAME || "ClinicHMS",
-  tagline: NEXT_PUBLIC_CLINIC_TAGLINE || "Hospital Management System",
   address: NEXT_PUBLIC_CLINIC_ADDRESS || "123 Healthcare Avenue, Medical District",
   phone: NEXT_PUBLIC_CLINIC_PHONE || "+92 300 1234567",
 };
@@ -133,7 +131,6 @@ export function LabReportPdfTemplate({ test, report, logoUrl }: { test: any; rep
           <View style={pdfStyles.header}>
             <View style={pdfStyles.headerLeft}>
               <Text style={pdfStyles.clinicName}>{CLINIC.name}</Text>
-              <Text style={pdfStyles.clinicSub}>{CLINIC.tagline}</Text>
               <Text style={pdfStyles.clinicSub}>{CLINIC.address}</Text>
               <Text style={pdfStyles.clinicSub}>{CLINIC.phone}</Text>
             </View>
@@ -231,7 +228,7 @@ export function generateLabReportPrintHtml(test: any, report?: any, logoUrl?: st
     @media print{body{padding:18px;padding-bottom:100px}@page{margin:12mm}}
   </style></head><body>
   <div class="header">
-    <div class="header-left"><div class="clinic-name">${CLINIC.name}</div><div class="clinic-sub">${CLINIC.tagline}</div><div class="clinic-sub">${CLINIC.address}</div><div class="clinic-sub">${CLINIC.phone}</div></div>
+    <div class="header-left"><div class="clinic-name">${CLINIC.name}</div><div class="clinic-sub">${CLINIC.address}</div><div class="clinic-sub">${CLINIC.phone}</div></div>
     <div class="header-center">${logoUrl ? `<img src="${logoUrl}" class="logo" />` : ''}</div>
     <div class="header-right"><div class="doc-title">LABORATORY REPORT</div><div class="doc-id">${test.labTestId}</div><div class="doc-id">${formatDate(test.createdAt)}</div></div>
   </div>

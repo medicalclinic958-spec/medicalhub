@@ -2,7 +2,6 @@
 import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
 import { 
   NEXT_PUBLIC_CLINIC_NAME, 
-  NEXT_PUBLIC_CLINIC_TAGLINE, 
   NEXT_PUBLIC_CLINIC_ADDRESS, 
   NEXT_PUBLIC_CLINIC_PHONE,
   NEXT_PUBLIC_CLINIC_EMAIL,
@@ -12,7 +11,6 @@ import {
 
 const CLINIC = {
   name: NEXT_PUBLIC_CLINIC_NAME || "ClinicHMS",
-  tagline: NEXT_PUBLIC_CLINIC_TAGLINE || "Hospital Management System",
   address: NEXT_PUBLIC_CLINIC_ADDRESS || "123 Healthcare Avenue, Medical District",
   phone: NEXT_PUBLIC_CLINIC_PHONE || "+92 300 1234567",
 };
@@ -120,7 +118,6 @@ export function EMRPdfTemplate({ record, logoUrl }: { record: any; logoUrl?: str
           <View style={pdfStyles.header}>
             <View style={pdfStyles.headerLeft}>
               <Text style={pdfStyles.clinicName}>{CLINIC.name}</Text>
-              <Text style={pdfStyles.clinicSub}>{CLINIC.tagline}</Text>
               <Text style={pdfStyles.clinicSub}>{CLINIC.address}</Text>
               <Text style={pdfStyles.clinicSub}>{CLINIC.phone}</Text>
             </View>
@@ -275,7 +272,7 @@ export function generateEMRPrintHtml(record: any, logoUrl?: string): string {
     @media print{body{padding:15px;padding-bottom:50px}}
   </style></head><body>
   <div class="header">
-    <div class="header-left"><div class="clinic-name">${CLINIC.name}</div><div class="clinic-sub">${CLINIC.tagline}</div><div class="clinic-details">${CLINIC.address}<br/>${CLINIC.phone}</div></div>
+    <div class="header-left"><div class="clinic-name">${CLINIC.name}</div><div class="clinic-details">${CLINIC.address}<br/>${CLINIC.phone}</div></div>
     ${logoSvg}
     <div class="header-right"><div class="doc-title">MEDICAL RECORD</div><div class="doc-sub">Visit: ${formatDate(r.visitDate)}</div>${r.followUpDate ? `<div class="doc-sub">Follow-up: ${formatDate(r.followUpDate)}</div>` : ""}</div>
   </div>

@@ -2,7 +2,6 @@
 import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
 import { 
   NEXT_PUBLIC_CLINIC_NAME, 
-  NEXT_PUBLIC_CLINIC_TAGLINE, 
   NEXT_PUBLIC_CLINIC_ADDRESS, 
   NEXT_PUBLIC_CLINIC_PHONE,
   INVOICE_PRINT_PDF_TEMPLATE_COLORS,
@@ -10,7 +9,6 @@ import {
 
 const CLINIC = {
   name: NEXT_PUBLIC_CLINIC_NAME || "ClinicHMS",
-  tagline: NEXT_PUBLIC_CLINIC_TAGLINE || "Hospital Management System",
   address: NEXT_PUBLIC_CLINIC_ADDRESS || "123 Healthcare Avenue, Medical District",
   phone: NEXT_PUBLIC_CLINIC_PHONE || "+92 300 1234567",
 };
@@ -112,7 +110,6 @@ export function InvoicePdfTemplate({ invoice, logoUrl }: { invoice: any; logoUrl
           <View style={pdfStyles.header}>
             <View style={pdfStyles.headerLeft}>
               <Text style={pdfStyles.clinicName}>{CLINIC.name}</Text>
-              <Text style={pdfStyles.clinicSub}>{CLINIC.tagline}</Text>
               <Text style={pdfStyles.clinicSub}>{CLINIC.address}</Text>
               <Text style={pdfStyles.clinicSub}>{CLINIC.phone}</Text>
             </View>
@@ -223,7 +220,7 @@ export function generateInvoicePrintHtml(invoice: any, logoUrl?: string): string
     .footer{position:fixed;bottom:0;left:30px;right:30px;text-align:center;font-size:9px;color:#aaa;border-top:1px solid ${COLORS.border};padding-top:10px;padding-bottom:10px;background:#fff}
     @media print{body{padding:20px;padding-bottom:60px}@page{margin:15mm}}
   </style></head><body>
-  <div class="header"><div class="header-left"><div class="clinic-name">${CLINIC.name}</div><div class="clinic-sub">${CLINIC.tagline}</div><div class="clinic-details">${CLINIC.address}<br/>${CLINIC.phone}</div></div>${logoSvg}<div class="header-right"><div class="invoice-title">INVOICE</div><div class="invoice-number">${invoice.invoiceNumber}</div>${statusBadge}</div></div>
+  <div class="header"><div class="header-left"><div class="clinic-name">${CLINIC.name}</div><div class="clinic-details">${CLINIC.address}<br/>${CLINIC.phone}</div></div>${logoSvg}<div class="header-right"><div class="invoice-title">INVOICE</div><div class="invoice-number">${invoice.invoiceNumber}</div>${statusBadge}</div></div>
   <div class="section"><div><div class="label">Bill To</div>${billToHtml}</div><div style="text-align:right;"><div class="label">Date Issued</div><div class="value">${formatDate(invoice.createdAt)}</div>${invoice.dueDate ? `<div class="label" style="margin-top:8px;">Due Date</div><div class="value">${formatDate(invoice.dueDate)}</div>` : ''}${invoice.doctor ? `<div class="label" style="margin-top:8px;">Doctor</div><div class="value">Dr. ${invoice.doctor.firstName} ${invoice.doctor.lastName}</div>` : ''}</div></div>
   <table><thead><tr><th>Description</th><th>Category</th><th class="right">Qty</th><th class="right">Unit Price</th><th class="right">Total</th></tr></thead><tbody>${itemsHtml}</tbody></table>
   <div class="totals"><div class="totals-row"><span class="totals-label">Subtotal</span><span class="totals-value">${formatCurrency(invoice.subtotal)}</span></div>${invoice.discount > 0 ? `<div class="totals-row"><span class="totals-label">Discount ${invoice.discountType === "percentage" ? `(${invoice.discount}%)` : ''}</span><span class="totals-value" style="color:${COLORS.discountText};">-${formatCurrency(discountAmount)}</span></div>` : ''}${invoice.taxAmount > 0 ? `<div class="totals-row"><span class="totals-label">Tax (${invoice.taxRate}%)</span><span class="totals-value">${formatCurrency(invoice.taxAmount)}</span></div>` : ''}<div class="totals-row total"><span>Total</span><span>${formatCurrency(invoice.total)}</span></div><div class="totals-row"><span class="totals-label">Amount Paid</span><span class="totals-value" style="color:${COLORS.discountText};">${formatCurrency(invoice.paidAmount)}</span></div>${invoice.balanceDue > 0 ? `<div class="totals-row balance"><span>Balance Due</span><span>${formatCurrency(invoice.balanceDue)}</span></div>` : ''}</div>
