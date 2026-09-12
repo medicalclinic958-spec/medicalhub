@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth/auth.config";
 import connectDB from "@/lib/db/mongoose";
 import { Report, LabTest, LabCatalog } from "@/models/operations.model";
+import { Patient } from "@/models/clinical.model"; // also ensures Patient schema is registered before .populate("patient") runs
 import { apiSuccess, apiError, getPaginationParams, buildPagination, getIpFromHeaders } from "@/lib/utils";
 import { auditLog, hasPermission } from "@/lib/auth/audit";
 import { z } from "zod";
@@ -32,7 +33,6 @@ export async function GET(req: NextRequest) {
 
   // Search by patient name or ID
   if (search) {
-    const { Patient } = await import("@/models/clinical.model");
     const patientIds = await Patient.find({
       $or: [
         { firstName: { $regex: search, $options: "i" } },

@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth/auth.config";
 import connectDB from "@/lib/db/mongoose";
 import { LabCatalog, LabTest } from "@/models/operations.model";
+import "@/models/clinical.model"; // ensures Patient (and other clinical) schemas are registered before .populate("patient") runs
 import { apiSuccess, apiError, getIpFromHeaders } from "@/lib/utils";
 import { auditLog, hasPermission } from "@/lib/auth/audit";
 import { NotificationService } from "@/services/notification.service";
