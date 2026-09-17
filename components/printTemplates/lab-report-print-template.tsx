@@ -50,17 +50,6 @@ const formatDate = (dateStr?: string) => {
   return new Date(dateStr).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 };
 
-const calculateAge = (dob?: string): string => {
-  if (!dob) return "—";
-  const birth = new Date(dob);
-  if (isNaN(birth.getTime())) return "—";
-  const today = new Date();
-  let age = today.getFullYear() - birth.getFullYear();
-  const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-  return `${age} years`;
-};
-
 const formatValue = (value: any) => {
   if (value === true) return "Positive";
   if (value === false) return "Negative";
@@ -149,7 +138,7 @@ export function LabReportPdfTemplate({ test, report, logoUrl }: { test: any; rep
           </View>
           <View style={pdfStyles.infoGrid}>
             <View style={pdfStyles.infoItem}><Text style={pdfStyles.sectionLabel}>Gender</Text><Text style={pdfStyles.value}>{test.patient?.gender || "—"}</Text></View>
-            <View style={pdfStyles.infoItem}><Text style={pdfStyles.sectionLabel}>Age</Text><Text style={pdfStyles.value}>{calculateAge(test.patient?.dateOfBirth)}</Text></View>
+            <View style={pdfStyles.infoItem}><Text style={pdfStyles.sectionLabel}>Age</Text><Text style={pdfStyles.value}>{test.patient?.age != null ? `${test.patient.age} years` : "—"}</Text></View>
             <View style={pdfStyles.infoItem}><Text style={pdfStyles.sectionLabel}>Status</Text><Text style={pdfStyles.value}>{test.status?.replace(/_/g, " ")}</Text></View>
             <View style={pdfStyles.infoItem}><Text style={pdfStyles.sectionLabel}>Collected</Text><Text style={pdfStyles.value}>{formatDate(test.sampleCollectedAt)}</Text></View>
           </View>
@@ -233,7 +222,7 @@ export function generateLabReportPrintHtml(test: any, report?: any, logoUrl?: st
     <div class="header-right"><div class="doc-title">LABORATORY REPORT</div><div class="doc-id">${test.labTestId}</div><div class="doc-id">${formatDate(test.createdAt)}</div></div>
   </div>
   <div class="patient-section"><div class="patient-col"><div class="label">Patient</div><div class="value">${test.patient?.firstName} ${test.patient?.lastName}</div><div class="sub">${test.patient?.patientId}</div></div><div class="patient-col"><div class="label">Requested By</div><div class="value">${test.requestedBy?.firstName} ${test.requestedBy?.lastName}</div></div></div>
-  <div class="info-grid"><div class="info-item"><span class="label">Gender</span><div class="value">${test.patient?.gender || "—"}</div></div><div class="info-item"><span class="label">Age</span><div class="value">${calculateAge(test.patient?.dateOfBirth)}</div></div><div class="info-item"><span class="label">Status</span><div class="value">${test.status?.replace(/_/g, " ")}</div></div><div class="info-item"><span class="label">Collected</span><div class="value">${formatDate(test.sampleCollectedAt)}</div></div></div>
+  <div class="info-grid"><div class="info-item"><span class="label">Gender</span><div class="value">${test.patient?.gender || "—"}</div></div><div class="info-item"><span class="label">Age</span><div class="value">${test.patient?.age != null ? `${test.patient.age} years` : "—"}</div></div><div class="info-item"><span class="label">Status</span><div class="value">${test.status?.replace(/_/g, " ")}</div></div><div class="info-item"><span class="label">Collected</span><div class="value">${formatDate(test.sampleCollectedAt)}</div></div></div>
   <div class="results-section"><div class="results-label">Test Results</div>${resultsHtml}</div>
   ${technicianHtml}
   <div class="footer">Computer-generated laboratory report • ${CLINIC.name} • ${formatDate(new Date().toISOString())}</div>

@@ -20,7 +20,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
   const { id } = await params;
 
   const test = await LabTest.findById(id)
-    .populate("patient", "firstName lastName patientId age gender dateOfBirth bloodGroup")
+    .populate("patient", "firstName lastName patientId age gender bloodGroup")
     .populate("requestedBy", "firstName lastName")
     .populate("sampleCollectedBy", "firstName lastName")
     .populate("processedBy", "firstName lastName")

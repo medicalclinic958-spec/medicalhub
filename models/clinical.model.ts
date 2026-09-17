@@ -46,7 +46,7 @@ export interface IPatient extends Document {
   firstName: string;
   lastName: string;
   gender: string;
-  dateOfBirth: Date;
+  age: number;
   phone: string;
   email?: string;
   address: typeof AddressSchema;
@@ -75,7 +75,7 @@ const PatientSchema = new Schema<IPatient>(
     firstName: { type: String, required: true, trim: true },
     lastName: { type: String, required: true, trim: true },
     gender: { type: String, enum: ["male", "female", "other"], required: true },
-    dateOfBirth: { type: Date, required: true },
+    age: { type: Number, required: true, min: 0, max: 120 },
     phone: { type: String, required: true, index: true },
     email: { type: String, lowercase: true, trim: true },
     address: AddressSchema,
@@ -105,16 +105,6 @@ const PatientSchema = new Schema<IPatient>(
 
 PatientSchema.virtual("fullName").get(function () {
   return `${this.firstName} ${this.lastName}`;
-});
-
-PatientSchema.virtual("age").get(function () {
-  if (!this.dateOfBirth) return null;
-  const today = new Date();
-  const dob = new Date(this.dateOfBirth);
-  let age = today.getFullYear() - dob.getFullYear();
-  const m = today.getMonth() - dob.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
-  return age;
 });
 
 PatientSchema.index({ firstName: "text", lastName: "text", phone: "text", patientId: "text" });

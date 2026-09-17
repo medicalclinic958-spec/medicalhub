@@ -100,8 +100,7 @@ export interface Patient {
   lastName: string;
   fullName: string;
   gender: Gender;
-  dateOfBirth: Date;
-  age?: number; // computed
+  age: number;
   phone: string;
   email?: string;
   address: Address;

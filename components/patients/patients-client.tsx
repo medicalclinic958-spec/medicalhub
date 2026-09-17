@@ -13,7 +13,7 @@ import {
   Pagination, Badge, Alert,
 } from "@/components/ui";
 import { createPatientSchema, CreatePatientInput } from "@/lib/validations";
-import { formatDate, cn, ageToDateOfBirth } from "@/lib/utils";
+import { formatDate, cn } from "@/lib/utils";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -25,7 +25,7 @@ interface Patient {
   lastName: string;
   fullName: string;
   gender: string;
-  dateOfBirth: string;
+  age: number;
   phone: string;
   email?: string;
   bloodGroup?: string;
@@ -43,7 +43,6 @@ export function PatientsClient() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createError, setCreateError] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [ageInput, setAgeInput] = useState("");
 
   const perms = session?.user.permissions || [];
   const isSA = session?.user.isSuperAdmin;
@@ -86,7 +85,6 @@ export function PatientsClient() {
       qc.invalidateQueries({ queryKey: ["patients"] });
       setCreateOpen(false);
       reset();
-      setAgeInput("");
       setCreateError("");
       toast.success("Patient created successfully!");
     },
@@ -191,7 +189,7 @@ export function PatientsClient() {
               <Th>Patient ID</Th>
               <Th>Name</Th>
               <Th>Gender</Th>
-              <Th>DOB</Th>
+              <Th>Age</Th>
               <Th>Phone</Th>
               <Th>Blood</Th>
               <Th>Status</Th>
@@ -232,7 +230,7 @@ export function PatientsClient() {
                     <div className="font-medium text-gray-900">{p.fullName || `${p.firstName} ${p.lastName}`}</div>
                   </Td>
                   <Td className="capitalize text-gray-600">{p.gender}</Td>
-                  <Td className="text-gray-500">{p.dateOfBirth ? formatDate(p.dateOfBirth) : "—"}</Td>
+                  <Td className="text-gray-500">{p.age != null ? `${p.age} yrs` : "—"}</Td>
                   <Td className="text-gray-600">{p.phone}</Td>
                   <Td>
                     {p.bloodGroup ? <Badge variant="outline">{p.bloodGroup}</Badge> : <span className="text-gray-300">—</span>}
@@ -308,7 +306,7 @@ export function PatientsClient() {
       </div>
 
       {/* Create Patient Modal */}
-      <Modal open={createOpen} onClose={() => { setCreateOpen(false); reset(); setAgeInput(""); setCreateError(""); }} title="New Patient" size="lg">
+      <Modal open={createOpen} onClose={() => { setCreateOpen(false); reset(); setCreateError(""); }} title="New Patient" size="lg">
         {createError && <Alert type="error">{createError}</Alert>}
         <form onSubmit={handleSubmit((d) => createMutation.mutate(d))} className="space-y-4 mt-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -329,20 +327,14 @@ export function PatientsClient() {
                 <option value="other">Other</option>
               </Select>
             </FormField>
-            <FormField label="Age (years)" required error={errors.dateOfBirth?.message}>
+            <FormField label="Age (years)" required error={errors.age?.message}>
               <Input
                 type="number"
                 min={0}
                 max={120}
                 placeholder="e.g. 34"
-                value={ageInput}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setAgeInput(val);
-                  const n = parseInt(val, 10);
-                  setValue("dateOfBirth", !isNaN(n) && n >= 0 ? ageToDateOfBirth(n) : "", { shouldValidate: true });
-                }}
-                error={!!errors.dateOfBirth}
+                {...register("age", { valueAsNumber: true })}
+                error={!!errors.age}
               />
             </FormField>
           </div>
@@ -452,7 +444,7 @@ export function PatientsClient() {
           </FormField>
 
           <div className="flex justify-end gap-2 pt-2 border-t border-gray-300">
-            <Button type="button" variant="secondary" onClick={() => { setCreateOpen(false); reset(); setAgeInput(""); setCreateError(""); }}>
+            <Button type="button" variant="secondary" onClick={() => { setCreateOpen(false); reset(); setCreateError(""); }}>
               Cancel
             </Button>
             <Button type="submit" loading={createMutation.isPending}>Create Patient</Button>

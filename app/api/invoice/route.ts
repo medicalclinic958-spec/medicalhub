@@ -22,10 +22,13 @@ export async function GET(req: NextRequest) {
     const dateFrom = sp.get("dateFrom") || "";
     const dateTo = sp.get("dateTo") || "";
 
+    const dueOnly = sp.get("dueOnly") === "true";
+
     const filter: Record<string, unknown> = {};
     if (invoiceType) filter.invoiceType = invoiceType;
     if (status) filter.status = status;
     if (patientId) filter.patient = patientId;
+    if (dueOnly) filter.balanceDue = { $gt: 0 };
     if (search) {
         const patientIds = await Patient.find({
             $or: [
@@ -50,8 +53,8 @@ export async function GET(req: NextRequest) {
         Invoice.find(filter)
             .skip(skip)
             .limit(limit)
-            .sort({ createdAt: -1 })
-            .populate("patient", "firstName lastName patientId")
+            .sort(dueOnly ? { dueDate: 1, createdAt: -1 } : { createdAt: -1 })
+            .populate("patient", "firstName lastName patientId phone")
             .populate("doctor", "firstName lastName")
             .populate("appointment", "appointmentId")
             .populate("createdBy", "firstName lastName")

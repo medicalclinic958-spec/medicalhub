@@ -3,14 +3,12 @@ import { Modal, FormField, Input, Select, Button, Alert } from "@/components/ui"
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { updatePatientSchema, UpdatePatientInput } from "@/lib/validations";
-import { ageToDateOfBirth, dateOfBirthToAge } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 export function EditPatientModal({ open, onClose, patient, onUpdate, isPending, error }: any) {
     const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<UpdatePatientInput>({
         resolver: zodResolver(updatePatientSchema),
     });
-    const [ageInput, setAgeInput] = useState("");
 
     const status = watch("status");
     const isDeceased = status === "deceased";
@@ -21,7 +19,7 @@ export function EditPatientModal({ open, onClose, patient, onUpdate, isPending, 
                 firstName: patient.firstName,
                 lastName: patient.lastName,
                 gender: patient.gender,
-                dateOfBirth: patient.dateOfBirth?.split("T")[0],
+                age: patient.age,
                 phone: patient.phone,
                 email: patient.email || "",
                 bloodGroup: patient.bloodGroup || "",
@@ -42,7 +40,6 @@ export function EditPatientModal({ open, onClose, patient, onUpdate, isPending, 
                 dateOfDeath: patient.dateOfDeath || "",
                 causeOfDeath: patient.causeOfDeath || "",
             });
-            setAgeInput(dateOfBirthToAge(patient.dateOfBirth).toString());
         }
     }, [open, patient, reset]);
 
@@ -68,19 +65,13 @@ export function EditPatientModal({ open, onClose, patient, onUpdate, isPending, 
                             <option value="other">Other</option>
                         </Select>
                     </FormField>
-                    <FormField label="Age (years)" required error={errors.dateOfBirth?.message}>
+                    <FormField label="Age (years)" required error={errors.age?.message}>
                         <Input
                             type="number"
                             min={0}
                             max={120}
                             placeholder="e.g. 34"
-                            value={ageInput}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                setAgeInput(val);
-                                const n = parseInt(val, 10);
-                                setValue("dateOfBirth", !isNaN(n) && n >= 0 ? ageToDateOfBirth(n) : "", { shouldValidate: true });
-                            }}
+                            {...register("age", { valueAsNumber: true })}
                         />
                     </FormField>
                 </div>

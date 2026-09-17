@@ -14,6 +14,7 @@ import {
   Hospital,
   X,
   Building,
+  HandCoins,
 } from "lucide-react";
 import { useState } from "react";
 import { useSidebar } from "../sidebar-context";
@@ -43,6 +44,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Laboratory", href: "/lab", icon: FlaskConical, permission: "lab:view", category: "Lab & Pharmacy" },
   { label: "Pharmacy", href: "/pharmacy", icon: Pill, permission: "pharmacy:view", category: "Lab & Pharmacy" },
   { label: "Suppliers", href: "/supplier", icon: Building2, permission: "pharmacy:view", category: "Lab & Pharmacy" },
+  { label: "Pharmacy Loans", href: "/pharmacy/loans", icon: HandCoins, permission: "pharmacy:view", category: "Lab & Pharmacy" },
   { label: "Staff", href: "/staff", icon: Users, permission: "staff:view", category: "Management" },
   { label: "Billing", href: "/billing", icon: Receipt, permission: "billing:view", category: "Finance" },
   // { label: "Inventory", href: "/inventory", icon: Package, permission: "inventory:view", category: "Finance" },

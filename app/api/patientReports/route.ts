@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     await connectDB();
 
     const labTest = await LabTest.findById(parsed.data.labTestId)
-        .populate("patient", "firstName lastName patientId dateOfBirth gender bloodGroup")
+        .populate("patient", "firstName lastName patientId age gender bloodGroup")
         .lean();
 
     if (!labTest) return apiError("Lab test not found", 404);
@@ -68,23 +68,11 @@ export async function POST(req: NextRequest) {
         return apiError(`Missing results for: ${missingResults.map(t => t.testName).join(", ")}`, 400);
     }
 
-    const dob = (labTest.patient as { dateOfBirth?: string })?.dateOfBirth;
-    let age = "-";
-    if (dob) {
-        const birth = new Date(dob);
-        if (!isNaN(birth.getTime())) {
-            const today = new Date();
-            let years = today.getFullYear() - birth.getFullYear();
-            const m = today.getMonth() - birth.getMonth();
-            if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) years--;
-            age = `${years} years`;
-        }
-    }
-
     const patient = labTest.patient as unknown as {
         firstName: string; lastName: string; patientId: string;
-        dateOfBirth?: string; gender?: string; bloodGroup?: string;
+        age?: number; gender?: string; bloodGroup?: string;
     };
+    const age = patient.age != null ? `${patient.age} years` : "-";
 
     const report = await Report.create({
         labTest: labTest._id,

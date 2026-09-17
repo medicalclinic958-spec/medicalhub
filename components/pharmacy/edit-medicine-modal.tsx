@@ -261,10 +261,10 @@ export function EditMedicineModal({ open, onClose, medicine, onUpdate, isPending
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <FormField label="Unit Cost (PKR)" required error={errors.unitCost?.message}>
-                            <Input type="number" {...register("unitCost", { valueAsNumber: true })} error={!!errors.unitCost} />
+                            <Input type="number" step="1" min={0} placeholder="Whole number only, e.g. 50" {...register("unitCost", { valueAsNumber: true })} error={!!errors.unitCost} />
                         </FormField>
                         <FormField label="Selling Price (PKR)" required error={errors.sellingPrice?.message}>
-                            <Input type="number" {...register("sellingPrice", { valueAsNumber: true })} error={!!errors.sellingPrice} />
+                            <Input type="number" step="1" min={0} placeholder="Whole number only, e.g. 100" {...register("sellingPrice", { valueAsNumber: true })} error={!!errors.sellingPrice} />
                         </FormField>
                         <FormField label="Batch Number">
                             <Input {...register("batchNumber")} />

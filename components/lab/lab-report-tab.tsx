@@ -14,7 +14,7 @@ import { pdf } from "@react-pdf/renderer";
 
 interface LabTestDetail {
     _id: string; labTestId: string;
-    patient: { firstName: string; lastName: string; patientId: string; dateOfBirth?: string; gender?: string; bloodGroup?: string };
+    patient: { firstName: string; lastName: string; patientId: string; age?: number; gender?: string; bloodGroup?: string };
     requestedBy: { firstName: string; lastName: string };
     tests: { testName: string; testCode?: string; category: string; cost: number; catalogId?: string | { _id?: string } }[];
     results: {
@@ -35,17 +35,6 @@ interface ExistingReport {
 }
 
 interface LabReportTabProps { test: LabTestDetail; id: string; }
-
-const calculateAge = (dob?: string): string => {
-    if (!dob) return "—";
-    const birth = new Date(dob);
-    if (isNaN(birth.getTime())) return "—";
-    const today = new Date();
-    let age = today.getFullYear() - birth.getFullYear();
-    const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-    return `${age} years`;
-};
 
 const formatValue = (value: any) => {
     if (value === true) return "Positive";
@@ -172,7 +161,7 @@ export function LabReportTab({ test, id }: LabReportTabProps) {
 
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 pb-4 border-b border-gray-200">
                             <div><p className="text-xs text-gray-400">Gender</p><p className="text-xs text-gray-700 capitalize">{test.patient?.gender || "—"}</p></div>
-                            <div><p className="text-xs text-gray-400">Age</p><p className="text-xs text-gray-700">{calculateAge(test.patient?.dateOfBirth)}</p></div>
+                            <div><p className="text-xs text-gray-400">Age</p><p className="text-xs text-gray-700">{test.patient?.age != null ? `${test.patient.age} years` : "—"}</p></div>
                             <div><p className="text-xs text-gray-400">Blood Group</p><p className="text-xs text-gray-700">{test.patient?.bloodGroup || "—"}</p></div>
                             <div><p className="text-xs text-gray-400">Priority</p><Badge variant={test.priority === "stat" ? "danger" : test.priority === "urgent" ? "warning" : "default"}>{test.priority}</Badge></div>
                         </div>

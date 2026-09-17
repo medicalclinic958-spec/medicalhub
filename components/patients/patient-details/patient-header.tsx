@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 interface Patient {
     _id: string; patientId: string; firstName: string; lastName: string;
-    gender: string; dateOfBirth: string; phone: string;
+    gender: string; age: number; phone: string;
     email?: string; bloodGroup?: string; status: string; photo?: string;
     address?: { street?: string; city?: string; state?: string; country?: string };
     createdAt: string;
@@ -47,20 +47,7 @@ export function PatientHeader({ p, onEdit }: { p: Patient; onEdit: () => void })
                             </div>
                             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-gray-500">
                                 <span className="capitalize">{p.gender}</span>
-                                {p.dateOfBirth && (
-                                    <span>
-                                        {(() => {
-                                            const birth = new Date(p.dateOfBirth);
-                                            if (isNaN(birth.getTime())) return "";
-                                            const today = new Date();
-                                            let age = today.getFullYear() - birth.getFullYear();
-                                            const m = today.getMonth() - birth.getMonth();
-                                            if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-                                            return `${age} years`;
-                                        })()}
-                                    </span>
-                                )}
-                                {p.dateOfBirth && <span>DOB: {formatDate(p.dateOfBirth)}</span>}
+                                {p.age != null && <span>{p.age} years</span>}
                                 {p.bloodGroup && <Badge variant="danger">{p.bloodGroup}</Badge>}
                             </div>
                             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-gray-500">
